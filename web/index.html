@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>DIPLab Studio</title>
+<link rel="icon" href="favicon.ico">
+<script src="/eel.js"></script>
+<style>
+  :root {
+    --bg:#0a0e17; --surface:#111726; --surface2:#182034; --border:#232d45;
+    --text:#e8ecf5; --muted:#8693ad; --accent:#5b8cff; --accent2:#7c5cff; --track:#2a3452;
+  }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { font-family:"Segoe UI Variable","Segoe UI",system-ui,sans-serif; background:var(--bg); color:var(--text);
+         display:flex; flex-direction:column; overflow:hidden; font-size:13px; user-select:none; }
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb { background:#2a3550; border-radius:8px; }
+  ::-webkit-scrollbar-thumb:hover { background:#3a4870; }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background:transparent; }
+  svg { width:16px; height:16px; flex-shrink:0; }
+
+  /* ---------- top bar ---------- */
+  .topbar { height:54px; background:var(--surface); border-bottom:1px solid var(--border);
+            display:flex; align-items:center; gap:10px; padding:0 14px; flex-shrink:0; position:relative; z-index:16; }
+  .brand { display:flex; align-items:center; gap:10px; margin:0 4px 0 6px; }
+  .logo { width:36px; height:36px; border-radius:50%; object-fit:cover; display:block;
+          border:2px solid var(--accent); box-shadow:0 0 0 3px rgba(91,140,255,.18); }
+  .brand b { font-size:15px; letter-spacing:.2px; } .brand small { color:var(--muted); display:block; font-size:10px; letter-spacing:1.2px; margin-top:-1px; }
+  .sep { width:1px; height:24px; background:var(--border); margin:0 4px; }
+  .spacer { flex:1; }
+  button { font:600 12.5px "Segoe UI Variable","Segoe UI",sans-serif; color:var(--text); cursor:pointer; border:0; }
+  .btn { display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 13px; border-radius:9px;
+         background:var(--surface2); border:1px solid var(--border); transition:.15s; }
+  .btn:hover { background:#202a44; border-color:#33406a; }
+  .btn.icon { width:34px; padding:0; justify-content:center; }
+  .btn.primary { background:linear-gradient(135deg,var(--accent),var(--accent2)); border-color:transparent; color:#fff; }
+  .btn.primary:hover { filter:brightness(1.12); }
+  .btn.on { background:#2a3658; border-color:var(--accent); }
+  .zoom { display:flex; align-items:center; gap:4px; }
+  .zoom span { width:44px; text-align:center; color:var(--muted); font-variant-numeric:tabular-nums; }
+
+  /* ---------- layout ---------- */
+  main { flex:1; display:grid; grid-template-columns:1fr 300px; min-height:0; position:relative; }
+  .stage-wrap { position:relative; min-width:0; min-height:0; display:flex; padding:14px; background:
+      radial-gradient(1200px 500px at 50% -10%, #141c33 0%, var(--bg) 70%); }
+  #stage { flex:1; display:none; min-width:0; min-height:0; }
+  .pane { position:relative; flex:1; min-height:0; min-width:0; background:#080b13; border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+  .view { position:absolute; inset:0; overflow:auto; display:flex; }
+  .view img { margin:auto; flex-shrink:0; display:block; }
+  .tag { position:absolute; top:12px; right:12px; z-index:3; display:none; background:var(--accent); color:#fff;
+         padding:5px 12px; border-radius:20px; font-size:10.5px; letter-spacing:1px; font-weight:700; pointer-events:none; }
+
+  /* ---------- custom crop ---------- */
+  #cropLayer { position:absolute; inset:0; display:none; z-index:5; overflow:hidden; pointer-events:none; }
+  #cropBox { position:absolute; border:1.5px solid #fff; cursor:move; pointer-events:auto; touch-action:none;
+             box-shadow:0 0 0 9999px rgba(4,6,12,.62);
+             background:
+               linear-gradient(to right, transparent calc(33.33% - .5px), rgba(255,255,255,.35) calc(33.33% - .5px) calc(33.33% + .5px), transparent calc(33.33% + .5px) calc(66.66% - .5px), rgba(255,255,255,.35) calc(66.66% - .5px) calc(66.66% + .5px), transparent calc(66.66% + .5px)),
+               linear-gradient(to bottom, transparent calc(33.33% - .5px), rgba(255,255,255,.35) calc(33.33% - .5px) calc(33.33% + .5px), transparent calc(33.33% + .5px) calc(66.66% - .5px), rgba(255,255,255,.35) calc(66.66% - .5px) calc(66.66% + .5px), transparent calc(66.66% + .5px)); }
+  .ch { position:absolute; width:12px; height:12px; background:#fff; border-radius:3px; transform:translate(-50%,-50%); box-shadow:0 0 0 1px rgba(0,0,0,.45); }
+  .ch::after { content:""; position:absolute; inset:-8px; }
+  #cropInfo { text-align:center; color:var(--accent); font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; padding:2px 0 4px; }
+
+  /* empty state */
+  #empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+           border:2px dashed #2b3757; border-radius:18px; color:var(--muted); cursor:pointer; transition:.2s; }
+  #empty:hover { border-color:var(--accent); background:rgba(91,140,255,.04); }
+  #empty .big { width:72px; height:72px; border-radius:20px; display:grid; place-items:center; color:#fff;
+                background:linear-gradient(135deg,var(--accent),var(--accent2)); }
+  #empty .big svg { width:34px; height:34px; }
+  #empty h2 { margin:6px 0 0; color:var(--text); font-size:18px; }
+  kbd { background:var(--surface2); border:1px solid var(--border); border-radius:5px; padding:1px 6px; font-size:11px; color:#cdd6ea; }
+
+  /* ---------- slide-in tools drawer ---------- */
+  #drawer { position:fixed; top:54px; bottom:30px; left:0; width:300px; z-index:15; background:var(--surface);
+            border-right:1px solid var(--border); box-shadow:12px 0 40px rgba(0,0,0,.45);
+            transform:translateX(-104%); transition:transform .42s cubic-bezier(.22,1,.36,1); display:flex; flex-direction:column; }
+  #drawer.open { transform:translateX(0); }
+  .dhead { display:flex; justify-content:space-between; align-items:center; padding:14px 16px 6px; }
+  .dhead b { font-size:14px; letter-spacing:.3px; }
+  .dbody { flex:1; overflow-y:auto; padding:0 12px 20px; }
+  .grp header { display:flex; justify-content:space-between; align-items:center; cursor:pointer; padding:12px 6px 8px;
+                font-size:11px; letter-spacing:1.3px; font-weight:700; color:#9db4ff; text-transform:uppercase; }
+  .grp header i { font-style:normal; color:var(--muted); transition:.2s; }
+  .grp.closed header i { transform:rotate(-90deg); }
+  .grp.closed .tiles { display:none; }
+  #drawer.open .grp { animation:slideIn .5s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes slideIn { from { opacity:0; transform:translateX(-26px); } to { opacity:1; transform:none; } }
+  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .tile { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px 6px 9px;
+          display:flex; flex-direction:column; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:#cdd6ea;
+          text-align:center; transition:.15s; line-height:1.2; }
+  .tile:hover { border-color:var(--accent); background:#1d2742; color:#fff; transform:translateY(-1px); }
+  .tile:active { transform:none; }
+  .gl { font:400 19px "Segoe UI Symbol","Segoe UI",sans-serif; color:var(--accent); height:24px; display:grid; place-items:center; }
+
+  /* ---------- right panel + dial ---------- */
+  .panel { background:var(--surface); border-left:1px solid var(--border); overflow-y:auto; padding:6px 18px 20px; }
+  .ptitle { font-size:10.5px; letter-spacing:1.4px; color:var(--muted); font-weight:700; margin:16px 2px 10px; }
+  .hist { background:#080b13; border:1px solid var(--border); border-radius:10px; padding:8px; }
+  .hist canvas { width:100%; height:60px; display:block; }
+  .dimrow { display:flex; justify-content:space-between; margin:8px 2px 0; color:var(--muted); font-size:12px; }
+  .dimrow b { color:var(--text); font-weight:600; }
+
+  .dial { position:relative; width:240px; height:240px; margin:22px auto 8px; }
+  .dial.swap { animation:dialIn .6s cubic-bezier(.2,.9,.25,1); }
+  @keyframes dialIn { from { opacity:0; transform:rotate(-80deg) scale(.88); } to { opacity:1; transform:none; } }
+  .notch { position:absolute; left:50%; top:-12px; margin-left:-7px; width:0; height:0; z-index:4;
+           border-left:7px solid transparent; border-right:7px solid transparent; border-top:10px solid var(--accent); }
+  .ring { position:absolute; inset:0; border-radius:50%; cursor:grab; touch-action:none;
+          background:radial-gradient(circle at 50% 35%, #1c2542, #0d1221 72%); border:1px solid var(--border);
+          box-shadow:inset 0 0 30px rgba(0,0,0,.55), 0 12px 32px rgba(0,0,0,.4);
+          transform:rotate(var(--ring,0deg)); transition:transform .6s cubic-bezier(.2,.9,.25,1); }
+  .ring:active { cursor:grabbing; }
+  .ring.drag { transition:none; }
+  .ring::before { content:""; position:absolute; inset:4px; border-radius:50%;
+          background:repeating-conic-gradient(from 0deg, #3d4a75 0 .8deg, transparent .8deg 6deg);
+          -webkit-mask:radial-gradient(circle closest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+                  mask:radial-gradient(circle closest-side, transparent calc(100% - 6px), #000 calc(100% - 5px)); }
+  .lab { position:absolute; left:50%; top:50%; width:0; height:0; }
+  .lab span { position:absolute; white-space:nowrap; font-size:11.5px; font-weight:700; color:#6f7ca0; cursor:pointer;
+              transform:translate(-50%,-50%) rotate(var(--cr,0deg)); transition:transform .6s cubic-bezier(.2,.9,.25,1), color .25s; }
+  .ring.drag .lab span { transition:color .25s; }
+  .lab.active span { color:#fff; }
+  .lab.mod span::after { content:""; display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--accent); margin-left:5px; vertical-align:middle; }
+  .cap { position:absolute; left:50%; top:20px; width:106px; height:32px; margin-left:-53px; border-radius:18px; z-index:3;
+         background:rgba(91,140,255,.14); border:1px solid rgba(91,140,255,.6); pointer-events:none; }
+  .hub { position:absolute; left:50%; top:50%; width:96px; height:96px; margin:-48px; border-radius:50%; z-index:2;
+         background:#0a0f1d; border:1px solid var(--border); box-shadow:0 4px 18px rgba(0,0,0,.55);
+         display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; }
+  .hub small { font-size:10px; color:var(--muted); letter-spacing:.6px; }
+  .hub b { font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:1px; }
+  .dhint { text-align:center; color:var(--muted); font-size:11px; margin:2px 0 14px; }
+
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:4px; outline:none; cursor:pointer; background:var(--track); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#fff;
+        box-shadow:0 0 0 3px rgba(91,140,255,.35); transition:.15s; }
+  input[type=range]::-webkit-slider-thumb:hover { box-shadow:0 0 0 6px rgba(91,140,255,.3); }
+  .valrow { padding:6px 4px 0; }
+  .btnrow { display:flex; flex-direction:column; gap:8px; margin-top:18px; }
+  .btnrow .btn { justify-content:center; width:100%; }
+  .hint { color:var(--muted); font-size:11px; text-align:center; margin-top:12px; line-height:1.9; }
+
+  /* status bar */
+  footer { height:30px; background:var(--surface); border-top:1px solid var(--border); display:flex; align-items:center;
+           justify-content:space-between; padding:0 14px; color:var(--muted); font-size:11.5px; flex-shrink:0; position:relative; z-index:16; }
+  footer .dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#34d399; margin-right:8px; }
+
+  /* overlays */
+  #busy { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(8,11,19,.45); z-index:30; }
+  #busy.on { display:flex; }
+  .spin { width:38px; height:38px; border-radius:50%; border:4px solid #2a3452; border-top-color:var(--accent); animation:sp .8s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  #drop { position:fixed; inset:12px; border:3px dashed var(--accent); border-radius:20px; background:rgba(91,140,255,.12);
+          display:none; align-items:center; justify-content:center; font-size:22px; font-weight:700; z-index:40; pointer-events:none; }
+  #drop.on { display:flex; }
+  #toasts { position:fixed; bottom:44px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; gap:8px; z-index:50; align-items:center; }
+  .toast { background:#1c2540; border:1px solid #33406a; padding:10px 18px; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,.4);
+           transition:.4s; animation:up .25s; } .toast.err { border-color:#b4414a; background:#34181d; } .toast.ok { border-color:#22805a; background:#12281f; }
+  .toast.out { opacity:0; transform:translateY(8px); } @keyframes up { from { opacity:0; transform:translateY(10px); } }
+  #modal { position:fixed; inset:0; background:rgba(4,6,12,.7); display:none; align-items:center; justify-content:center; z-index:20; }
+  #modalBox { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px; max-width:96vw; max-height:92vh; overflow:auto; }
+  #modalBox h3 { margin:0 0 14px; font-size:15px; }
+  #modalBody { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+  #modalBody div { text-align:center; color:#cdd6ea; } #modalBody img { max-width:290px; border-radius:10px; display:block; margin-top:8px; }
+  canvas { border-radius:10px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><img class="logo" src="logo.png" alt="logo"><div><b>DIPLab Studio</b><small>PHOTO WORKSPACE</small></div></div>
+  <button class="btn primary" id="toolsBtn" onclick="toggleDrawer()" title="Editing tools (T)"><span data-i="menu"></span>Tools</button>
+  <div class="sep"></div>
+  <button class="btn" onclick="openImg()" title="Open (Ctrl+O)"><span data-i="open"></span>Open</button>
+  <button class="btn" onclick="saveImg()" title="Save (Ctrl+S)"><span data-i="save"></span>Save</button>
+  <div class="sep"></div>
+  <button class="btn icon" onclick="call(eel.undo)" title="Undo (Ctrl+Z)" data-i="undo"></button>
+  <button class="btn icon" onclick="call(eel.redo)" title="Redo (Ctrl+Y)" data-i="redo"></button>
+  <button class="btn icon" onclick="call(eel.reset)" title="Reset to original" data-i="reset"></button>
+  <div class="spacer"></div>
+  <button class="btn" id="cmpBtn" title="Hold to compare with the original (Space)"
+          onpointerdown="peekOn()" onpointerup="peekOff()" onpointerleave="peekOff()"><span data-i="eye"></span>Hold to compare</button>
+  <div class="zoom">
+    <button class="btn icon" onclick="zoomBy(1/1.25)" title="Zoom out (-)" data-i="minus"></button>
+    <span id="zlabel">Fit</span>
+    <button class="btn icon" onclick="zoomBy(1.25)" title="Zoom in (+)" data-i="plus"></button>
+    <button class="btn icon" onclick="zoomFit()" title="Fit (0)" data-i="fit"></button>
+  </div>
+</div>
+
+<!-- slide-in tools drawer -->
+<aside id="drawer">
+  <div class="dhead"><b>Editing Tools</b><button class="btn icon" onclick="closeDrawer()" title="Close" data-i="close"></button></div>
+  <div class="dbody" id="tools"></div>
+</aside>
+
+<main>
+  <div class="stage-wrap" id="stagewrap">
+    <div id="empty" onclick="openImg()">
+      <div class="big" data-i="image"></div>
+      <h2>Drop an image here</h2>
+      <div>or click to browse &nbsp;·&nbsp; <kbd>Ctrl</kbd> + <kbd>O</kbd></div>
+      <div style="font-size:12px">JPG, PNG, BMP, WEBP</div>
+    </div>
+    <div id="stage">
+      <div class="pane" id="pane"><span class="tag" id="peek">SHOWING ORIGINAL</span><div class="view" id="view"><img id="img"></div>
+        <div id="cropLayer"><div id="cropBox"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <div class="ptitle">HISTOGRAM</div>
+    <div class="hist"><canvas id="mini" width="256" height="64"></canvas></div>
+    <div class="dimrow"><span>Dimensions</span><b id="dims">&mdash;</b></div>
+
+    <div class="ptitle" id="dialTitle" style="margin-top:22px">TUNE IMAGE</div>
+    <div class="dial">
+      <div class="notch"></div>
+      <div class="ring" id="ring"></div>
+      <div class="cap"></div>
+      <div class="hub" id="hub" title="Double-click to reset this setting"><small id="hubName">Brightness</small><b id="hubVal">0</b></div>
+    </div>
+    <div class="dhint" id="dhint">Rotate the wheel to pick a setting</div>
+    <div class="valrow" id="valrow"><input type="range" id="val" min="-100" max="100" value="0" oninput="onVal()" ondblclick="resetOne()"></div>
+
+    <div class="btnrow" id="tuneBtns">
+      <button class="btn primary" onclick="applyAdjust()">Apply Adjustments</button>
+      <button class="btn" onclick="resetSliders()">Reset All</button>
+    </div>
+    <div class="hint" id="tuneHint">Live preview before applying<br>Hold <kbd>Space</kbd> to peek at the original</div>
+
+    <div class="btnrow" id="cropBtns" style="display:none">
+      <div id="cropInfo">&mdash;</div>
+      <button class="btn" onclick="swapAspect()">&#8644; Swap orientation</button>
+      <button class="btn primary" onclick="applyCrop()">Apply Crop</button>
+      <button class="btn" onclick="cancelCrop()">Cancel</button>
+    </div>
+    <div class="hint" id="cropHint" style="display:none">Drag the box or its handles<br><kbd>Enter</kbd> apply &nbsp;&middot;&nbsp; <kbd>Esc</kbd> cancel</div>
+  </aside>
+</main>
+
+<footer><span><span class="dot"></span><span id="status">Ready</span></span><span>Python + Eel &nbsp;·&nbsp; T tools &nbsp;·&nbsp; Ctrl+Z undo &nbsp;·&nbsp; Ctrl+S save</span></footer>
+
+<div id="busy"><div class="spin"></div></div>
+<div id="drop">Drop image to open</div>
+<div id="toasts"></div>
+<div id="modal" onclick="if(event.target===this)closeModal()">
+  <div id="modalBox"><h3 id="modalTitle"></h3><div id="modalBody"></div>
+    <div style="text-align:right;margin-top:16px"><button class="btn" onclick="closeModal()">Close</button></div></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let hasImage = false, zoom = 1, peek = false, cropping = false;
+let original = null, processed = null, previewing = null;
+const PAD = 30;
+
+/* ---------- icons ---------- */
+const ICON = {
+  open:  '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  save:  '<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/>',
+  undo:  '<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+  redo:  '<path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/>',
+  reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  plus:  '<path d="M12 5v14M5 12h14"/>',
+  minus: '<path d="M5 12h14"/>',
+  fit:   '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  menu:  '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  eye:   '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
+};
+document.querySelectorAll("[data-i]").forEach(el => {
+  el.insertAdjacentHTML("afterbegin",
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[el.dataset.i]}</svg>`);
+});
+
+/* ---------- tools drawer ---------- */
+const GROUPS = [
+  { title:"Basic DIP", run:k => k === "RGB Channels" ? showRGB() : call(eel.basic, k),
+    items:[["◐","Grayscale"],["◧","Black & White"],["◑","Negative"],["◢","Contrast Stretch"],["▤","RGB Channels"]] },
+  { title:"Transform", run:a => a === "crop" ? startCrop() : call(eel.transform, a),
+    items:[["✂","Custom Crop","crop"],["⤡","Resize 50%","resize"],["↺","Rotate Left","left"],["↻","Rotate Right","right"],
+           ["⇆","Flip Horizontal","flip_h"],["⇅","Flip Vertical","flip_v"]] },
+  { title:"Looks & Filters", run:n => call(eel.look, n),
+    items:[["☺","Portrait"],["◍","Vintage"],["☀","Warm"],["❄","Cool"],["▦","Cinematic"],["◧","Black & White"]] },
+  { title:"Details", run:e => call(eel.effect, e),
+    items:[["✦","Sharpen","sharpen"],["◌","Gaussian Blur","blur"],["≈","Smooth Image","smooth"],["◉","Vignette","vignette"]] },
+  { title:"Image Analysis", run:k => k === "hist" ? showHist() : showProfile(),
+    items:[["▥","Show Histogram","hist"],["∿","Image Profile","profile"]] },
+];
+GROUPS.forEach((g, gi) => {
+  const sec = document.createElement("section"); sec.className = "grp"; sec.style.animationDelay = (0.08 + gi * 0.07) + "s";
+  sec.innerHTML = `<header><span>${g.title}</span><i>▾</i></header><div class="tiles"></div>`;
+  const tiles = sec.querySelector(".tiles");
+  for (const [glyph, label, arg] of g.items) {
+    const b = document.createElement("button"); b.className = "tile";
+    b.innerHTML = `<span class="gl">${glyph}\uFE0E</span><span>${label}</span>`;
+    b.onclick = () => g.run(arg || label);
+    tiles.appendChild(b);
+  }
+  sec.querySelector("header").onclick = () => sec.classList.toggle("closed");
+  $("tools").appendChild(sec);
+});
+function openDrawer() { $("drawer").classList.add("open"); $("toolsBtn").classList.add("on"); }
+function closeDrawer() { $("drawer").classList.remove("open"); $("toolsBtn").classList.remove("on"); }
+function toggleDrawer() { $("drawer").classList.contains("open") ? closeDrawer() : openDrawer(); }
+$("stagewrap").addEventListener("pointerdown", () => closeDrawer());
+
+/* ---------- wheel (changes with the selected feature) ---------- */
+const NAMES = ["Brightness","Contrast","Saturation","Warmth","Sharpness"];
+const CROP_ITEMS = [["Free",0],["Original",-1],["1:1",1],["4:3",4/3],["3:2",3/2],["16:9",16/9],["9:16",9/16]];
+const WHEELS = {
+  tune: { title:"TUNE IMAGE", hint:"Rotate the wheel to pick a setting", labels:NAMES },
+  crop: { title:"CROP", hint:"Rotate the wheel to pick a shape", labels:CROP_ITEMS.map(c => c[0]) },
+};
+const LABEL_R = 84;
+const V = Object.fromEntries(NAMES.map(n => [n, 0]));
+const vals = () => ({ ...V });
+let wheel = "tune", items = NAMES, N = NAMES.length, STEP = 360 / NAMES.length;
+const mod = i => ((i % N) + N) % N;
+let sel = 0, selU = 0, ringRot = 0, moved = 0, lastA = 0, lastWheel = 0, hubText = "Free";
+const ring = $("ring");
+
+function buildWheel(mode) {
+  wheel = mode; const w = WHEELS[mode];
+  items = w.labels; N = items.length; STEP = 360 / N;
+  ring.innerHTML = "";
+  items.forEach((name, i) => {
+    const a = i * STEP;
+    const lab = document.createElement("div"); lab.className = "lab";
+    lab.style.transform = `rotate(${a}deg) translateY(-${LABEL_R}px) rotate(${-a}deg)`;
+    lab.innerHTML = `<span>${name}</span>`;
+    lab.onclick = () => { if (moved < 6) goTo(i); };
+    ring.appendChild(lab);
+  });
+  selU = 0; ringRot = 0; sel = 0; hubText = items[0]; setRing(true);
+  $("dialTitle").textContent = w.title; $("dhint").textContent = w.hint;
+  const tune = mode === "tune";
+  $("valrow").style.display = tune ? "block" : "none";
+  $("tuneBtns").style.display = tune ? "flex" : "none";
+  $("tuneHint").style.display = tune ? "block" : "none";
+  $("cropBtns").style.display = tune ? "none" : "flex";
+  $("cropHint").style.display = tune ? "none" : "block";
+  refreshHub();
+  const d = document.querySelector(".dial"); d.classList.remove("swap"); void d.offsetWidth; d.classList.add("swap");
+}
+function setRing(animate) {
+  ring.classList.toggle("drag", !animate);
+  ring.style.setProperty("--ring", ringRot + "deg");
+  ring.style.setProperty("--cr", -ringRot + "deg");
+}
+function paintVal() {
+  const el = $("val"), v = (el.value - el.min) / (el.max - el.min) * 100;
+  const a = Math.min(50, v), b = Math.max(50, v);
+  el.style.background = `linear-gradient(to right,var(--track) ${a}%,var(--accent) ${a}%,var(--accent) ${b}%,var(--track) ${b}%)`;
+}
+function refreshHub() {
+  const hv = $("hubVal");
+  if (wheel === "tune") {
+    const n = NAMES[sel], v = V[n];
+    $("hubName").textContent = n;
+    hv.textContent = (v > 0 ? "+" : "") + v; hv.style.fontSize = "26px";
+    $("val").value = v; paintVal();
+  } else {
+    $("hubName").textContent = "Aspect";
+    hv.textContent = hubText; hv.style.fontSize = hubText.length > 4 ? "17px" : "26px";
+  }
+  [...ring.children].forEach((l, i) => {
+    l.classList.toggle("active", i === sel);
+    l.classList.toggle("mod", wheel === "tune" && V[NAMES[i]] !== 0);
+  });
+}
+function onSelect(i) {
+  if (wheel === "crop") { const r = CROP_ITEMS[i][1]; setAspect(r === -1 ? imgW / imgH : r); }
+}
+function setSel(i, commit = true) {
+  sel = i; if (wheel === "crop") hubText = items[i];
+  refreshHub(); if (commit) onSelect(i);
+}
+function goTo(i) {
+  let d = mod(i - mod(selU)); if (d > N / 2) d -= N;
+  selU += d; ringRot = -selU * STEP; setRing(true); setSel(i);
+}
+function step(dir) { selU += dir; ringRot = -selU * STEP; setRing(true); setSel(mod(selU)); }
+
+function angleOf(e) {
+  const r = $("ring").getBoundingClientRect();
+  return Math.atan2(e.clientX - (r.left + r.width / 2), -(e.clientY - (r.top + r.height / 2))) * 180 / Math.PI;
+}
+function onMove(e) {
+  const a = angleOf(e); let d = a - lastA;
+  if (d > 180) d -= 360; if (d < -180) d += 360;
+  lastA = a; ringRot += d; moved += Math.abs(d); setRing(false);
+  setSel(mod(Math.round(-ringRot / STEP)), false);
+}
+function onUp() {
+  removeEventListener("pointermove", onMove); removeEventListener("pointerup", onUp);
+  selU = Math.round(-ringRot / STEP); ringRot = -selU * STEP; setRing(true); setSel(mod(selU));
+}
+ring.addEventListener("pointerdown", e => {
+  moved = 0; lastA = angleOf(e); setRing(false);
+  addEventListener("pointermove", onMove); addEventListener("pointerup", onUp);
+});
+$("ring").parentElement.addEventListener("wheel", e => {
+  e.preventDefault();
+  const now = Date.now(); if (now - lastWheel < 140) return; lastWheel = now;
+  step(e.deltaY > 0 ? 1 : -1);
+}, { passive:false });
+
+let busy = false, pending = false;
+function onVal() { if (wheel !== "tune") return; V[NAMES[sel]] = +$("val").value; refreshHub(); runPreview(); }
+async function runPreview() {
+  if (!hasImage) return;
+  if (busy) { pending = true; return; }
+  busy = true;
+  do {
+    pending = false;
+    const v = vals();
+    if (Object.values(v).every(x => x === 0)) { previewing = null; render(); continue; }
+    const r = await eel.preview(v)();
+    if (r && r.preview) { previewing = r.preview; render(); }
+  } while (pending);
+  busy = false;
+}
+function resetSlidersUI() { NAMES.forEach(n => V[n] = 0); previewing = null; refreshHub(); }
+function resetSliders() { resetSlidersUI(); render(); }
+function resetOne() { if (wheel !== "tune") return; V[NAMES[sel]] = 0; refreshHub(); runPreview(); }
+$("hub").addEventListener("dblclick", resetOne);
+async function applyAdjust() {
+  if (!hasImage) return toast("Please open an image first.", "err");
+  handle(await run(() => eel.apply_adjust(vals())()));
+}
+buildWheel("tune");
+
+/* ---------- rendering ---------- */
+function fitImg() {
+  const img = $("img"); if (!img.naturalWidth) return;
+  const v = $("view"), cw = v.clientWidth, ch = v.clientHeight;
+  const pad = cropping ? PAD : 0;
+  const s = Math.min((cw - 2 * pad) / img.naturalWidth, (ch - 2 * pad) / img.naturalHeight);
+  img.style.width = Math.max(10, img.naturalWidth * s * zoom) + "px"; img.style.height = "auto";
+}
+function relayout() { fitImg(); updateCropUI(); }
+$("img").onload = relayout;
+new ResizeObserver(relayout).observe($("view"));
+
+function render() {
+  $("empty").style.display = hasImage ? "none" : "flex";
+  $("stage").style.display = hasImage ? "flex" : "none";
+  if (!hasImage) return;
+  $("img").src = peek ? original : (previewing || processed);
+  $("peek").style.display = peek ? "block" : "none";
+  fitImg();
+}
+function peekOn() { if (hasImage && !peek && !cropping) { peek = true; render(); } }
+function peekOff() { if (peek) { peek = false; render(); } }
+function zoomBy(f) { if (cropping) return; zoom = Math.min(8, Math.max(0.25, zoom * f)); if (Math.abs(zoom - 1) < 0.03) zoom = 1; zlabel(); fitImg(); }
+function zoomFit() { zoom = 1; zlabel(); fitImg(); }
+function zlabel() { $("zlabel").textContent = zoom === 1 ? "Fit" : Math.round(zoom * 100) + "%"; }
+$("stage").addEventListener("wheel", e => { if (e.ctrlKey) { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.1 : 1/1.1); } }, { passive:false });
+
+/* ---------- helpers ---------- */
+function status(t) { if (t) $("status").textContent = t; }
+function toast(msg, type = "") {
+  const t = document.createElement("div"); t.className = "toast " + type; t.textContent = msg; $("toasts").appendChild(t);
+  setTimeout(() => t.classList.add("out"), 2600); setTimeout(() => t.remove(), 3000);
+}
+async function run(fn) {
+  const t = setTimeout(() => $("busy").classList.add("on"), 150);
+  try { return await fn(); } finally { clearTimeout(t); $("busy").classList.remove("on"); }
+}
+function handle(r) {
+  if (!r || r.cancelled) return;
+  if (r.error) { status(r.error); toast(r.error, "err"); return; }
+  if (r.original) { original = r.original; zoom = 1; zlabel(); }
+  if (r.processed) { processed = r.processed; hasImage = true; resetSlidersUI(); render(); refreshHist(); }
+  if (r.size) { $("dims").textContent = r.size; const m = /(\d+)\s*x\s*(\d+)/.exec(r.size); if (m) { imgW = +m[1]; imgH = +m[2]; } }
+  status(r.status);
+  if (r.status && r.status.startsWith("Saved")) toast(r.status, "ok");
+}
+async function call(fn, arg) { handle(await run(() => arg === undefined ? fn()() : fn(arg)())); }
+async function openImg() { handle(await eel.pick_open()()); }
+async function saveImg() { handle(await eel.save_image()()); }
+
+/* ---------- mini histogram ---------- */
+async function refreshHist() {
+  const r = await eel.histogram()(); if (!r || r.error) return;
+  const h = r.proc, c = $("mini"), g = c.getContext("2d"), W = c.width, H = c.height;
+  g.clearRect(0, 0, W, H);
+  const max = Math.max(1, ...h.map(a => a.slice(1, 255).reduce((m, v) => Math.max(m, v), 0)));
+  g.globalCompositeOperation = "lighter";
+  ["#ff4d4d", "#33d17a", "#4d8dff"].forEach((col, i) => {
+    g.beginPath(); g.moveTo(0, H);
+    h[i].forEach((v, x) => g.lineTo(x / 255 * W, H - Math.min(1, v / max) * (H - 4)));
+    g.lineTo(W, H); g.closePath(); g.fillStyle = col + "88"; g.fill();
+  });
+  g.globalCompositeOperation = "source-over";
+}
+
+/* ---------- custom crop ---------- */
+let cb = { x:0, y:0, w:0, h:0 }, cAspect = 0, imgW = 1, imgH = 1, drag = null;
+const MINPX = 8, clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+["nw","n","ne","e","se","s","sw","w"].forEach(d => {
+  const h = document.createElement("div"); h.className = "ch"; h.dataset.d = d;
+  h.style.left = d.includes("w") ? "0%" : d.includes("e") ? "100%" : "50%";
+  h.style.top  = d.includes("n") ? "0%" : d.includes("s") ? "100%" : "50%";
+  h.style.cursor = (d === "n" || d === "s") ? "ns-resize" : (d === "e" || d === "w") ? "ew-resize" : (d === "nw" || d === "se") ? "nwse-resize" : "nesw-resize";
+  $("cropBox").appendChild(h);
+});
+
+function imgRect() { return $("img").getBoundingClientRect(); }
+function toImg(e, limit = true) {
+  const r = imgRect(), k = r.width / imgW;
+  const x = (e.clientX - r.left) / k, y = (e.clientY - r.top) / k;
+  return limit ? { x: clamp(x, 0, imgW), y: clamp(y, 0, imgH) } : { x, y };
+}
+function updateCropUI() {
+  if (!cropping) return;
+  const pane = $("pane"), p = pane.getBoundingClientRect(), r = imgRect(), k = r.width / imgW;
+  const ox = r.left - p.left - pane.clientLeft, oy = r.top - p.top - pane.clientTop, b = $("cropBox");
+  b.style.left = (ox + cb.x * k) + "px"; b.style.top = (oy + cb.y * k) + "px";
+  b.style.width = (cb.w * k) + "px"; b.style.height = (cb.h * k) + "px";
+  $("cropInfo").textContent = `${Math.round(cb.w)} × ${Math.round(cb.h)} px`;
+}
+function startCrop() {
+  if (!hasImage) return toast("Please open an image first.", "err");
+  closeDrawer(); resetSliders(); peek = false; zoom = 1; zlabel();
+  cropping = true; render();
+  $("cropLayer").style.display = "block";
+  const w = imgW * 0.8, h = imgH * 0.8;
+  cb = { x:(imgW - w) / 2, y:(imgH - h) / 2, w, h }; cAspect = 0;
+  buildWheel("crop");                 // the wheel now shows crop shapes
+  requestAnimationFrame(updateCropUI);
+}
+function endCrop() {
+  cropping = false; drag = null; $("cropLayer").style.display = "none";
+  buildWheel("tune"); fitImg();
+}
+function cancelCrop() { endCrop(); }
+async function applyCrop() {
+  const b = cb; endCrop();
+  handle(await run(() => eel.crop(b.x / imgW, b.y / imgH, (b.x + b.w) / imgW, (b.y + b.h) / imgH)()));
+}
+function setAspect(r) {
+  cAspect = r;
+  if (r > 0) {
+    const cx = cb.x + cb.w / 2, cy = cb.y + cb.h / 2;
+    let w = cb.w, h = cb.h;
+    if (w / h > r) w = h * r; else h = w / r;
+    const sc = Math.min(1, imgW / w, imgH / h); w *= sc; h *= sc;
+    cb = { x: clamp(cx - w / 2, 0, imgW - w), y: clamp(cy - h / 2, 0, imgH - h), w, h };
+  }
+  updateCropUI();
+}
+function swapAspect() {
+  if (!cropping || cAspect <= 0 || Math.abs(cAspect - 1) < 0.001) return;
+  const m = /^(\d+):(\d+)$/.exec(hubText);
+  hubText = m ? `${m[2]}:${m[1]}` : "Custom";
+  setAspect(1 / cAspect); refreshHub();
+}
+function resizeBox(dir, p) {
+  const s = drag.s, hx = dir.includes("e") ? 1 : dir.includes("w") ? -1 : 0, hy = dir.includes("s") ? 1 : dir.includes("n") ? -1 : 0;
+  const ax = hx > 0 ? s.x : hx < 0 ? s.x + s.w : s.x, ay = hy > 0 ? s.y : hy < 0 ? s.y + s.h : s.y;
+  let x0, y0, w, h;
+  if (!cAspect) {
+    x0 = s.x; y0 = s.y; let x1 = s.x + s.w, y1 = s.y + s.h;
+    if (hx > 0) x1 = Math.max(x0 + MINPX, p.x);
+    if (hx < 0) x0 = Math.min(x1 - MINPX, p.x);
+    if (hy > 0) y1 = Math.max(y0 + MINPX, p.y);
+    if (hy < 0) y0 = Math.min(y1 - MINPX, p.y);
+    cb = { x:x0, y:y0, w:x1 - x0, h:y1 - y0 }; return;
+  }
+  const r = cAspect;
+  if (hx && hy) {
+    w = Math.max(MINPX, (p.x - ax) * hx); h = Math.max(MINPX, (p.y - ay) * hy);
+    w = Math.max(w, h * r); h = w / r;
+    const sc = Math.min(1, (hx > 0 ? imgW - ax : ax) / w, (hy > 0 ? imgH - ay : ay) / h); w *= sc; h *= sc;
+    x0 = hx > 0 ? ax : ax - w; y0 = hy > 0 ? ay : ay - h;
+  } else if (hx) {
+    w = Math.max(MINPX, (p.x - ax) * hx); h = w / r;
+    const cy = s.y + s.h / 2, sc = Math.min(1, (hx > 0 ? imgW - ax : ax) / w, 2 * Math.min(cy, imgH - cy) / h); w *= sc; h *= sc;
+    x0 = hx > 0 ? ax : ax - w; y0 = cy - h / 2;
+  } else {
+    h = Math.max(MINPX, (p.y - ay) * hy); w = h * r;
+    const cx = s.x + s.w / 2, sc = Math.min(1, (hy > 0 ? imgH - ay : ay) / h, 2 * Math.min(cx, imgW - cx) / w); w *= sc; h *= sc;
+    y0 = hy > 0 ? ay : ay - h; x0 = cx - w / 2;
+  }
+  cb = { x:x0, y:y0, w, h };
+}
+const box = $("cropBox");
+box.addEventListener("pointerdown", e => {
+  e.preventDefault(); e.stopPropagation();
+  drag = { d: e.target.dataset.d || "move", s: { ...cb }, p0: toImg(e, false) };
+  box.setPointerCapture(e.pointerId);
+});
+box.addEventListener("pointermove", e => {
+  if (!drag) return;
+  if (drag.d === "move") {
+    const p = toImg(e, false);
+    cb.x = clamp(drag.s.x + p.x - drag.p0.x, 0, imgW - cb.w);
+    cb.y = clamp(drag.s.y + p.y - drag.p0.y, 0, imgH - cb.h);
+  } else resizeBox(drag.d, toImg(e));
+  updateCropUI();
+});
+box.addEventListener("pointerup", () => { drag = null; });
+
+/* ---------- popups ---------- */
+function openModal(t) { $("modalTitle").textContent = t; $("modalBody").innerHTML = ""; $("modal").style.display = "flex"; }
+function closeModal() { $("modal").style.display = "none"; }
+function plot(title, series, ymax) {
+  const c = document.createElement("canvas"); c.width = 520; c.height = 300;
+  const g = c.getContext("2d"), W = c.width, H = c.height, p = 34;
+  g.fillStyle = "#080b13"; g.fillRect(0, 0, W, H);
+  const n = series[0].data.length;
+  const max = ymax || series.reduce((m, s) => Math.max(m, s.data.reduce((a, b) => Math.max(a, b), 0)), 1);
+  g.strokeStyle = "#2a3452"; g.strokeRect(p, p, W - 2*p, H - 2*p);
+  g.fillStyle = "#cdd6ea"; g.font = "13px Segoe UI"; g.fillText(title, p, 22);
+  g.fillStyle = "#8693ad"; g.font = "11px Segoe UI"; g.fillText(max, 4, p + 4); g.fillText("0", 16, H - p);
+  for (const s of series) {
+    g.beginPath();
+    s.data.forEach((v, i) => { const x = p + (W - 2*p) * i / (n - 1), y = H - p - (H - 2*p) * v / max; i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.strokeStyle = s.color; g.lineWidth = 1.5; g.stroke();
+  }
+  $("modalBody").appendChild(c);
+}
+const COLORS = ["#ef4444", "#22c55e", "#3b82f6"];
+async function showHist() {
+  const r = await eel.histogram()(); if (r.error) return toast(r.error, "err");
+  openModal("Histogram");
+  plot("Original Histogram", r.orig.map((d, i) => ({ data: d, color: COLORS[i] })));
+  plot("Processed Histogram", r.proc.map((d, i) => ({ data: d, color: COLORS[i] })));
+}
+async function showProfile() {
+  const r = await eel.profile()(); if (r.error) return toast(r.error, "err");
+  openModal("Horizontal Pixel Intensity Profile");
+  plot("Middle row intensity", [{ data: r.row, color: "#e2e8f0" }], 255);
+}
+async function showRGB() {
+  const r = await eel.rgb_channels()(); if (r.error) return toast(r.error, "err");
+  openModal("RGB Channel Split");
+  for (const ch of r.channels) $("modalBody").insertAdjacentHTML("beforeend", `<div>${ch.name} Channel<img src="${ch.url}"></div>`);
+}
+
+/* ---------- keyboard + drag & drop ---------- */
+addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
+  if (cropping) {
+    if (k === "enter") applyCrop(); else if (k === "escape") cancelCrop();
+    else if (k === "arrowleft") step(-1); else if (k === "arrowright") step(1);
+    return;
+  }
+  if (e.ctrlKey || e.metaKey) {
+    if (k === "o") { e.preventDefault(); openImg(); }
+    else if (k === "s") { e.preventDefault(); saveImg(); }
+    else if (k === "z") { e.preventDefault(); e.shiftKey ? call(eel.redo) : call(eel.undo); }
+    else if (k === "y") { e.preventDefault(); call(eel.redo); }
+    return;
+  }
+  if (k === "escape") { closeModal(); closeDrawer(); }
+  if (k === "t") toggleDrawer();
+  if (k === "arrowleft") step(-1);
+  if (k === "arrowright") step(1);
+  if (e.code === "Space" && !e.repeat) { e.preventDefault(); peekOn(); }
+  if (k === "+" || k === "=") zoomBy(1.25);
+  if (k === "-") zoomBy(1/1.25);
+  if (k === "0") zoomFit();
+});
+addEventListener("keyup", e => { if (e.code === "Space") peekOff(); });
+
+let depth = 0;
+addEventListener("dragenter", e => { e.preventDefault(); depth++; $("drop").classList.add("on"); });
+addEventListener("dragleave", () => { if (--depth <= 0) { depth = 0; $("drop").classList.remove("on"); } });
+addEventListener("dragover", e => e.preventDefault());
+addEventListener("drop", e => {
+  e.preventDefault(); depth = 0; $("drop").classList.remove("on");
+  const f = e.dataTransfer.files[0]; if (!f) return;
+  if (!f.type.startsWith("image/")) return toast("That is not an image file", "err");
+  const rd = new FileReader();
+  rd.onload = async () => handle(await run(() => eel.open_data(rd.result, f.name)()));
+  rd.readAsDataURL(f);
+});
+</script>
+</body>
+</html>
