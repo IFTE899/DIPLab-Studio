@@ -19,6 +19,7 @@
   ::-webkit-scrollbar-thumb:hover { background:#3a4870; }
   ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background:transparent; }
   svg { width:16px; height:16px; flex-shrink:0; }
+  img { -webkit-user-drag:none; user-drag:none; }
 
   /* ---------- top bar ---------- */
   .topbar { height:54px; background:var(--surface); border-bottom:1px solid var(--border);
@@ -60,7 +61,7 @@
                linear-gradient(to bottom, transparent calc(33.33% - .5px), rgba(255,255,255,.35) calc(33.33% - .5px) calc(33.33% + .5px), transparent calc(33.33% + .5px) calc(66.66% - .5px), rgba(255,255,255,.35) calc(66.66% - .5px) calc(66.66% + .5px), transparent calc(66.66% + .5px)); }
   .ch { position:absolute; width:12px; height:12px; background:#fff; border-radius:3px; transform:translate(-50%,-50%); box-shadow:0 0 0 1px rgba(0,0,0,.45); }
   .ch::after { content:""; position:absolute; inset:-8px; }
-  #cropInfo { text-align:center; color:var(--accent); font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; padding:2px 0 4px; }
+  #cropInfo, #toolInfo, #convInfo { text-align:center; color:var(--accent); font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; padding:2px 0 4px; }
 
   /* empty state */
   #empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
@@ -130,7 +131,37 @@
          background:#0a0f1d; border:1px solid var(--border); box-shadow:0 4px 18px rgba(0,0,0,.55);
          display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; }
   .hub small { font-size:10px; color:var(--muted); letter-spacing:.6px; }
-  .hub b { font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:1px; }
+  .hub b { font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:1px; max-width:84px; text-align:center; line-height:1.1; }
+  .lab span.thumb { display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .lab span.thumb img { pointer-events:none; width:42px; height:42px; border-radius:50%; object-fit:cover; display:block; border:2px solid #2a3452; transition:.25s; }
+  .lab span.thumb small { font-size:9px; font-weight:700; letter-spacing:.2px; color:#8693ad; transition:color .25s; }
+  .lab.active span.thumb img { border-color:var(--accent); box-shadow:0 0 0 3px rgba(91,140,255,.4); transform:scale(1.14); }
+  .lab.active span.thumb small { color:#fff; }
+  .dial.thumbs .cap { display:none; }
+  /* pan the zoomed picture with the mouse */
+  .view.pannable { cursor:grab; } .view.panning { cursor:grabbing; }
+  /* resize panel */
+  .seg3 { display:flex; gap:2px; background:var(--surface2); border:1px solid var(--border); border-radius:11px; padding:3px; margin:4px 0 16px; }
+  .seg3 button { flex:1; height:30px; background:none; color:var(--muted); border-radius:8px; font-size:11.5px; }
+  .seg3 button.on { background:#2a3658; color:#fff; }
+  .rz2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .fld { margin-bottom:12px; }
+  .fh { display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:600; color:#cdd6ea; margin-bottom:6px; min-height:20px; }
+  .fh i { font-style:normal; font-weight:400; color:var(--muted); margin-left:4px; }
+  #resizePanel input[type=number], #resizePanel select { width:100%; background:var(--surface2); color:var(--text); border:1px solid var(--border);
+        border-radius:9px; padding:9px 10px; font:600 13px "Segoe UI Variable","Segoe UI",sans-serif; outline:none; user-select:text; }
+  #resizePanel input[type=number]:focus, #resizePanel select:focus { border-color:var(--accent); }
+  #resizePanel select.unit { width:auto; padding:1px 2px; background:none; border:0; font-size:12px; }
+  #resizePanel select option { background:#182034; color:#e8ecf5; }
+  .chk { display:flex; align-items:center; gap:8px; font-size:12.5px; color:#cdd6ea; margin:2px 0 8px; cursor:pointer; }
+  .chk input { accent-color:var(--accent); width:15px; height:15px; }
+  #rzInfo { text-align:center; color:var(--accent); font-size:12.5px; font-weight:700; margin:8px 0 14px; min-height:18px; }
+  #rzInfo.bad { color:#f87171; }
+  .exph { display:flex; justify-content:space-between; font-weight:700; font-size:14px; padding:12px 2px 10px; border-top:1px solid var(--border); cursor:pointer; }
+  .rzrow { display:grid; grid-template-columns:1fr 72px; gap:8px; }
+  .note { color:var(--muted); font-size:11px; margin:-4px 2px 12px; }
+  .slrow { display:flex; justify-content:space-between; font-weight:600; color:#cdd6ea; margin:0 2px 8px; font-size:12px; }
+  .slrow b { color:var(--accent); font-variant-numeric:tabular-nums; }
   .dhint { text-align:center; color:var(--muted); font-size:11px; margin:2px 0 14px; }
 
   input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:4px; outline:none; cursor:pointer; background:var(--track); }
@@ -176,9 +207,9 @@
   <button class="btn" onclick="openImg()" title="Open (Ctrl+O)"><span data-i="open"></span>Open</button>
   <button class="btn" onclick="saveImg()" title="Save (Ctrl+S)"><span data-i="save"></span>Save</button>
   <div class="sep"></div>
-  <button class="btn icon" onclick="call(eel.undo)" title="Undo (Ctrl+Z)" data-i="undo"></button>
-  <button class="btn icon" onclick="call(eel.redo)" title="Redo (Ctrl+Y)" data-i="redo"></button>
-  <button class="btn icon" onclick="call(eel.reset)" title="Reset to original" data-i="reset"></button>
+  <button class="btn icon" onclick="hist(eel.undo)" title="Undo (Ctrl+Z)" data-i="undo"></button>
+  <button class="btn icon" onclick="hist(eel.redo)" title="Redo (Ctrl+Y)" data-i="redo"></button>
+  <button class="btn icon" onclick="hist(eel.reset)" title="Reset to original" data-i="reset"></button>
   <div class="spacer"></div>
   <button class="btn" id="cmpBtn" title="Hold to compare with the original (Space)"
           onpointerdown="peekOn()" onpointerup="peekOff()" onpointerleave="peekOff()"><span data-i="eye"></span>Hold to compare</button>
@@ -217,7 +248,7 @@
     <div class="dimrow"><span>Dimensions</span><b id="dims">&mdash;</b></div>
 
     <div class="ptitle" id="dialTitle" style="margin-top:22px">TUNE IMAGE</div>
-    <div class="dial">
+    <div class="dial" id="dialWrap">
       <div class="notch"></div>
       <div class="ring" id="ring"></div>
       <div class="cap"></div>
@@ -235,14 +266,82 @@
     <div class="btnrow" id="cropBtns" style="display:none">
       <div id="cropInfo">&mdash;</div>
       <button class="btn" onclick="swapAspect()">&#8644; Swap orientation</button>
+      <button class="btn" onclick="resetCrop()">Reset crop box</button>
       <button class="btn primary" onclick="applyCrop()">Apply Crop</button>
       <button class="btn" onclick="cancelCrop()">Cancel</button>
     </div>
     <div class="hint" id="cropHint" style="display:none">Drag the box or its handles<br><kbd>Enter</kbd> apply &nbsp;&middot;&nbsp; <kbd>Esc</kbd> cancel</div>
+
+    <div id="resizePanel" style="display:none">
+      <div class="seg3" id="rzTabs">
+        <button class="on" data-m="size" onclick="rzMode('size')">By Size</button>
+        <button data-m="percent" onclick="rzMode('percent')">As Percentage</button>
+        <button data-m="social" onclick="rzMode('social')">Social Media</button>
+      </div>
+
+      <div id="rzSize">
+        <div class="rz2">
+          <div class="fld"><div class="fh">Width</div><input type="number" id="rzW" min="1" placeholder="Enter Width" oninput="rzType('w')"></div>
+          <div class="fld"><div class="fh"><span>Height</span>
+              <select id="rzUnit" class="unit" onchange="rzUnitChanged()"><option>px</option><option>cm</option><option>in</option><option>mm</option></select></div>
+            <input type="number" id="rzH" min="1" placeholder="Enter Height" oninput="rzType('h')"></div>
+        </div>
+        <div class="fld" id="rzDpiRow" style="display:none"><div class="fh">DPI (dots per inch)</div><input type="number" id="rzDpi" value="300" min="30" max="1200" oninput="rzUnitChanged()"></div>
+      </div>
+
+      <div id="rzPercent" style="display:none">
+        <div class="rz2">
+          <div class="fld"><div class="fh">Width %</div><input type="number" id="rzPW" min="1" value="100" oninput="rzPct('w')"></div>
+          <div class="fld"><div class="fh">Height %</div><input type="number" id="rzPH" min="1" value="100" oninput="rzPct('h')"></div>
+        </div>
+        <input type="range" id="rzSlider" min="5" max="400" value="100" oninput="rzPct('slider')" style="margin:2px 0 14px">
+      </div>
+
+      <div id="rzSocial" style="display:none">
+        <div class="fld"><div class="fh">Platform and size</div><select id="rzPreset" onchange="rzUpdate()"></select></div>
+        <div class="fld"><div class="fh">How to fit the picture</div>
+          <select id="rzFit" onchange="rzUpdate()"><option value="fill">Crop to fill</option><option value="fit">Fit with white bars</option><option value="stretch">Stretch</option></select></div>
+      </div>
+
+      <label class="chk" id="rzLockRow"><input type="checkbox" id="rzLock" checked onchange="rzLockChanged()"> Lock Aspect Ratio</label>
+      <div id="rzInfo">&mdash;</div>
+
+      <div class="exph" onclick="rzToggleExport()"><span>Export Settings</span><span id="rzChevron">&#9652;</span></div>
+      <div id="rzExportBody">
+        <div class="fld"><div class="fh"><span>Target File Size<i>(optional)</i></span></div>
+          <div class="rzrow"><input type="number" id="rzTarget" min="1" placeholder="e.g. 200"><select id="rzTUnit"><option>KB</option><option>MB</option></select></div></div>
+        <div class="note">Set a max output file size. Only works for JPG files.</div>
+      </div>
+
+      <div class="btnrow">
+        <button class="btn primary" onclick="applyResize()">Apply resize</button>
+        <button class="btn" onclick="exportResize()">Save resized copy...</button>
+        <button class="btn" onclick="resetTool()">Reset</button>
+        <button class="btn" onclick="cancelTool()">Cancel</button>
+      </div>
+    </div>
+
+    <div class="valrow" id="toolRow" style="display:none">
+      <div class="slrow"><span id="toolSlLabel">Strength</span><b id="toolSlVal">0</b></div>
+      <input type="range" id="toolSl" min="0" max="100" value="50" oninput="onToolSlider()">
+    </div>
+    <div class="btnrow" id="toolBtns" style="display:none">
+      <div id="toolInfo">&mdash;</div>
+      <button class="btn primary" onclick="applyTool()">Apply</button>
+      <button class="btn" onclick="resetTool()">Reset</button>
+      <button class="btn" onclick="cancelTool()">Cancel</button>
+    </div>
+    <div class="btnrow" id="convBtns" style="display:none">
+      <div id="convInfo">&mdash;</div>
+      <button class="btn primary" onclick="convSaveAs()">Save as...</button>
+      <button class="btn" onclick="convBatch()">Convert many files...</button>
+      <button class="btn" onclick="cancelTool()">Close</button>
+    </div>
+    <div class="hint" id="toolHint" style="display:none">Rotate the wheel to change the option<br><kbd>Enter</kbd> apply &nbsp;&middot;&nbsp; <kbd>Esc</kbd> cancel &nbsp;&middot;&nbsp; hold <kbd>Space</kbd> to compare</div>
   </aside>
 </main>
 
-<footer><span><span class="dot"></span><span id="status">Ready</span></span><span>Python + Eel &nbsp;·&nbsp; T tools &nbsp;·&nbsp; Ctrl+Z undo &nbsp;·&nbsp; Ctrl+S save</span></footer>
+<footer><span><span class="dot"></span><span id="status">Ready</span></span><span>T tools &nbsp;·&nbsp; Ctrl+Z undo &nbsp;·&nbsp; Ctrl+S save</span></footer>
 
 <div id="busy"><div class="spin"></div></div>
 <div id="drop">Drop image to open</div>
@@ -254,7 +353,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-let hasImage = false, zoom = 1, peek = false, cropping = false;
+let hasImage = false, zoom = 1, peek = false, cropping = false, tool = null;
 let original = null, processed = null, previewing = null;
 const PAD = 30;
 
@@ -280,15 +379,14 @@ document.querySelectorAll("[data-i]").forEach(el => {
 
 /* ---------- tools drawer ---------- */
 const GROUPS = [
-  { title:"Basic DIP", run:k => k === "RGB Channels" ? showRGB() : call(eel.basic, k),
-    items:[["◐","Grayscale"],["◧","Black & White"],["◑","Negative"],["◢","Contrast Stretch"],["▤","RGB Channels"]] },
-  { title:"Transform", run:a => a === "crop" ? startCrop() : call(eel.transform, a),
-    items:[["✂","Custom Crop","crop"],["⤡","Resize 50%","resize"],["↺","Rotate Left","left"],["↻","Rotate Right","right"],
-           ["⇆","Flip Horizontal","flip_h"],["⇅","Flip Vertical","flip_v"]] },
-  { title:"Looks & Filters", run:n => call(eel.look, n),
-    items:[["☺","Portrait"],["◍","Vintage"],["☀","Warm"],["❄","Cool"],["▦","Cinematic"],["◧","Black & White"]] },
-  { title:"Details", run:e => call(eel.effect, e),
-    items:[["✦","Sharpen","sharpen"],["◌","Gaussian Blur","blur"],["≈","Smooth Image","smooth"],["◉","Vignette","vignette"]] },
+  { title:"Basic DIP", run:k => startTool(k),
+    items:[["◐","Grayscale","grayscale"],["◧","Black & White","threshold"],["◑","Negative","negative"],["◢","Contrast Stretch","contrast"],["▤","RGB Channels","channels"]] },
+  { title:"Transform", run:a => a === "crop" ? startCrop() : startTool(a),
+    items:[["✂","Custom Crop","crop"],["⤡","Resize","resize"],["↻","Rotate","rotate"],["⇆","Flip","flip"]] },
+  { title:"Looks & Details", run:k => startTool(k),
+    items:[["☺","Looks","looks"],["◈","Color Grading","grading"],["✦","Sharpen","sharpen"],["◌","Blur","blur"],["◉","Vignette","vignette"]] },
+  { title:"Convert", run:k => startTool(k),
+    items:[["⇄","Convert Format","convert"]] },
   { title:"Image Analysis", run:k => k === "hist" ? showHist() : showProfile(),
     items:[["▥","Show Histogram","hist"],["∿","Image Profile","profile"]] },
 ];
@@ -322,31 +420,35 @@ const V = Object.fromEntries(NAMES.map(n => [n, 0]));
 const vals = () => ({ ...V });
 let wheel = "tune", items = NAMES, N = NAMES.length, STEP = 360 / NAMES.length;
 const mod = i => ((i % N) + N) % N;
-let sel = 0, selU = 0, ringRot = 0, moved = 0, lastA = 0, lastWheel = 0, hubText = "Free";
+let sel = 0, selU = 0, ringRot = 0, moved = 0, lastA = 0, lastWheel = 0, hubText = "Free", curDef = null, labelSpans = [];
 const ring = $("ring");
 
-function buildWheel(mode) {
-  wheel = mode; const w = WHEELS[mode];
+function showPanels(mode) {
+  const show = (id, on, d = "block") => { $(id).style.display = on ? d : "none"; };
+  const tune = mode === "tune", crop = mode === "crop", tl = mode === "tool", cv = mode === "convert", rz = mode === "resize";
+  show("dialWrap", !rz); show("dhint", !rz); show("resizePanel", rz);
+  show("valrow", tune); show("tuneBtns", tune, "flex"); show("tuneHint", tune);
+  show("cropBtns", crop, "flex"); show("cropHint", crop);
+  show("toolBtns", tl, "flex"); show("convBtns", cv, "flex"); show("toolHint", tl || cv);
+  if (!tl && !cv) show("toolRow", false);          // the slider row is shown by applyToolSlider()
+}
+function buildWheel(mode, def) {
+  wheel = mode; const w = def || WHEELS[mode]; curDef = w;
   items = w.labels; N = items.length; STEP = 360 / N;
-  ring.innerHTML = "";
+  ring.innerHTML = ""; labelSpans = [];
   items.forEach((name, i) => {
     const a = i * STEP;
     const lab = document.createElement("div"); lab.className = "lab";
     lab.style.transform = `rotate(${a}deg) translateY(-${LABEL_R}px) rotate(${-a}deg)`;
-    lab.innerHTML = `<span>${name}</span>`;
+    const sp = document.createElement("span"); sp.textContent = name; lab.appendChild(sp); labelSpans.push(sp);
     lab.onclick = () => { if (moved < 6) goTo(i); };
     ring.appendChild(lab);
   });
   selU = 0; ringRot = 0; sel = 0; hubText = items[0]; setRing(true);
   $("dialTitle").textContent = w.title; $("dhint").textContent = w.hint;
-  const tune = mode === "tune";
-  $("valrow").style.display = tune ? "block" : "none";
-  $("tuneBtns").style.display = tune ? "flex" : "none";
-  $("tuneHint").style.display = tune ? "block" : "none";
-  $("cropBtns").style.display = tune ? "none" : "flex";
-  $("cropHint").style.display = tune ? "none" : "block";
+  showPanels(mode);
   refreshHub();
-  const d = document.querySelector(".dial"); d.classList.remove("swap"); void d.offsetWidth; d.classList.add("swap");
+  const d = document.querySelector(".dial"); d.classList.remove("swap", "thumbs"); void d.offsetWidth; d.classList.add("swap");
 }
 function setRing(animate) {
   ring.classList.toggle("drag", !animate);
@@ -366,8 +468,9 @@ function refreshHub() {
     hv.textContent = (v > 0 ? "+" : "") + v; hv.style.fontSize = "26px";
     $("val").value = v; paintVal();
   } else {
-    $("hubName").textContent = "Aspect";
-    hv.textContent = hubText; hv.style.fontSize = hubText.length > 4 ? "17px" : "26px";
+    $("hubName").textContent = wheel === "crop" ? "Aspect" : ((curDef && curDef.hub) || "Option");
+    hv.textContent = hubText;
+    const L = hubText.length; hv.style.fontSize = L > 12 ? "11px" : L > 8 ? "13px" : L > 4 ? "17px" : "26px";
   }
   [...ring.children].forEach((l, i) => {
     l.classList.toggle("active", i === sel);
@@ -376,9 +479,10 @@ function refreshHub() {
 }
 function onSelect(i) {
   if (wheel === "crop") { const r = CROP_ITEMS[i][1]; setAspect(r === -1 ? imgW / imgH : r); }
+  else if (wheel === "tool" || wheel === "convert") toolOptionChanged();
 }
 function setSel(i, commit = true) {
-  sel = i; if (wheel === "crop") hubText = items[i];
+  sel = i; if (wheel !== "tune") hubText = items[i];
   refreshHub(); if (commit) onSelect(i);
 }
 function goTo(i) {
@@ -428,7 +532,13 @@ async function runPreview() {
 }
 function resetSlidersUI() { NAMES.forEach(n => V[n] = 0); previewing = null; refreshHub(); }
 function resetSliders() { resetSlidersUI(); render(); }
-function resetOne() { if (wheel !== "tune") return; V[NAMES[sel]] = 0; refreshHub(); runPreview(); }
+function resetOne() {                                   // double-click on the middle of the wheel, in every mode
+  if (wheel === "tune") { V[NAMES[sel]] = 0; refreshHub(); runPreview(); }
+  else if (cropping) resetCrop();
+  else if (tool) resetTool();
+}
+// Undo / Redo / Reset in the top bar: finish any open crop or tool first, so nothing is left half-open
+function hist(fn) { if (cropping) endCrop(); if (tool) endTool(); call(fn); }
 $("hub").addEventListener("dblclick", resetOne);
 async function applyAdjust() {
   if (!hasImage) return toast("Please open an image first.", "err");
@@ -442,7 +552,9 @@ function fitImg() {
   const v = $("view"), cw = v.clientWidth, ch = v.clientHeight;
   const pad = cropping ? PAD : 0;
   const s = Math.min((cw - 2 * pad) / img.naturalWidth, (ch - 2 * pad) / img.naturalHeight);
-  img.style.width = Math.max(10, img.naturalWidth * s * zoom) + "px"; img.style.height = "auto";
+  const w = Math.max(10, img.naturalWidth * s * zoom);
+  img.style.width = w + "px"; img.style.height = "auto";
+  v.classList.toggle("pannable", w > cw + 1 || w * img.naturalHeight / img.naturalWidth > ch + 1);      // bigger than the window: it can be dragged
 }
 function relayout() { fitImg(); updateCropUI(); }
 $("img").onload = relayout;
@@ -458,9 +570,33 @@ function render() {
 }
 function peekOn() { if (hasImage && !peek && !cropping) { peek = true; render(); } }
 function peekOff() { if (peek) { peek = false; render(); } }
-function zoomBy(f) { if (cropping) return; zoom = Math.min(8, Math.max(0.25, zoom * f)); if (Math.abs(zoom - 1) < 0.03) zoom = 1; zlabel(); fitImg(); }
+function zoomBy(f) {
+  if (cropping) return;
+  const v = $("view"), cx = (v.scrollLeft + v.clientWidth / 2) / Math.max(1, v.scrollWidth), cy = (v.scrollTop + v.clientHeight / 2) / Math.max(1, v.scrollHeight);
+  zoom = Math.min(8, Math.max(0.25, zoom * f)); if (Math.abs(zoom - 1) < 0.03) zoom = 1; zlabel(); fitImg();
+  v.scrollLeft = cx * v.scrollWidth - v.clientWidth / 2; v.scrollTop = cy * v.scrollHeight - v.clientHeight / 2;   // keep looking at the same spot
+}
 function zoomFit() { zoom = 1; zlabel(); fitImg(); }
 function zlabel() { $("zlabel").textContent = zoom === 1 ? "Fit" : Math.round(zoom * 100) + "%"; }
+// drag the zoomed picture with the left mouse button held down
+let pan = null;
+{
+  const v = $("view");
+  v.addEventListener("pointerdown", e => {
+    if (e.button !== 0 || cropping) return;
+    const r = v.getBoundingClientRect();
+    if (e.clientX - r.left > v.clientWidth || e.clientY - r.top > v.clientHeight) return;          // that was the scroll bar
+    if (v.scrollWidth <= v.clientWidth && v.scrollHeight <= v.clientHeight) return;               // nothing to drag
+    pan = { x: e.clientX, y: e.clientY, left: v.scrollLeft, top: v.scrollTop };
+    v.setPointerCapture(e.pointerId); v.classList.add("panning"); e.preventDefault();
+  });
+  v.addEventListener("pointermove", e => {
+    if (!pan) return;
+    v.scrollLeft = pan.left - (e.clientX - pan.x); v.scrollTop = pan.top - (e.clientY - pan.y);
+  });
+  const stop = () => { pan = null; v.classList.remove("panning"); };
+  v.addEventListener("pointerup", stop); v.addEventListener("pointercancel", stop);
+}
 $("stage").addEventListener("wheel", e => { if (e.ctrlKey) { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.1 : 1/1.1); } }, { passive:false });
 
 /* ---------- helpers ---------- */
@@ -477,10 +613,14 @@ function handle(r) {
   if (!r || r.cancelled) return;
   if (r.error) { status(r.error); toast(r.error, "err"); return; }
   if (r.original) { original = r.original; zoom = 1; zlabel(); }
-  if (r.processed) { processed = r.processed; hasImage = true; resetSlidersUI(); render(); refreshHist(); }
+  if (r.processed) {
+    if (cropping) endCrop();
+    if (tool) { tool = null; toolPending = false; buildWheel("tune"); }
+    processed = r.processed; hasImage = true; resetSlidersUI(); render(); refreshHist();
+  }
   if (r.size) { $("dims").textContent = r.size; const m = /(\d+)\s*x\s*(\d+)/.exec(r.size); if (m) { imgW = +m[1]; imgH = +m[2]; } }
   status(r.status);
-  if (r.status && r.status.startsWith("Saved")) toast(r.status, "ok");
+  if (r.status && /^(Saved|Converted)/.test(r.status)) toast(r.status, "ok");
 }
 async function call(fn, arg) { handle(await run(() => arg === undefined ? fn()() : fn(arg)())); }
 async function openImg() { handle(await eel.pick_open()()); }
@@ -528,6 +668,7 @@ function updateCropUI() {
 }
 function startCrop() {
   if (!hasImage) return toast("Please open an image first.", "err");
+  if (tool) { tool = null; toolPending = false; previewing = null; }
   closeDrawer(); resetSliders(); peek = false; zoom = 1; zlabel();
   cropping = true; render();
   $("cropLayer").style.display = "block";
@@ -535,6 +676,11 @@ function startCrop() {
   cb = { x:(imgW - w) / 2, y:(imgH - h) / 2, w, h }; cAspect = 0;
   buildWheel("crop");                 // the wheel now shows crop shapes
   requestAnimationFrame(updateCropUI);
+}
+function resetCrop() {                                   // whole picture selected, shape back to Free
+  if (!cropping) return;
+  cb = { x: 0, y: 0, w: imgW, h: imgH };
+  goTo(0);                                              // wheel to "Free" (this also redraws the box)
 }
 function endCrop() {
   cropping = false; drag = null; $("cropLayer").style.display = "none";
@@ -608,6 +754,250 @@ box.addEventListener("pointermove", e => {
 });
 box.addEventListener("pointerup", () => { drag = null; });
 
+/* ---------- tools that work like Crop ----------
+   Pick a tool -> the wheel shows that tool's options -> live preview on the image -> Apply or Cancel. */
+const TOOLS = {
+  grayscale: { title:"GRAYSCALE", hub:"Method", items:["Luminance","Average","Lightness","Red","Green","Blue"], slider:() => null },
+  threshold: { title:"BLACK & WHITE", hub:"Mode", items:["Manual","Otsu (auto)","Adaptive"],
+    slider: o => o === "Manual" ? { label:"Threshold", min:0, max:255, value:127 }
+               : o === "Adaptive" ? { label:"Window (px)", min:5, max:101, value:25 } : null },
+  negative:  { title:"NEGATIVE", hub:"Channels", items:["All","Red","Green","Blue","Solarize"],
+    slider: o => o === "Solarize" ? { label:"Threshold", min:0, max:255, value:128 } : null },
+  contrast:  { title:"CONTRAST STRETCH", hub:"Method", items:["Min-Max","Percentile","Equalize"],
+    slider: o => o === "Percentile" ? { label:"Clip %", min:0, max:20, value:2 } : null },
+  channels:  { title:"RGB CHANNELS", hub:"Channel", items:["Red","Green","Blue","Red (gray)","Green (gray)","Blue (gray)"], slider:() => null },
+  rotate:    { title:"ROTATE", hub:"Turn", items:["Left 90","Right 90","180","Any angle"],
+    slider: o => o === "Any angle" ? { label:"Angle (degrees)", min:-180, max:180, value:0 } : null },
+  flip:      { title:"FLIP", hub:"Direction", items:["Horizontal","Vertical","Both"], slider:() => null },
+  looks:     { title:"LOOKS", hub:"Look", items:["Portrait","Vintage","Warm","Cool","Cinematic","Black & White"],
+    slider:() => ({ label:"Strength %", min:0, max:100, value:100 }) },
+  grading:   { title:"COLOR GRADING", hub:"Grade", items:["Teal-Orange","Golden","Cold Blue","Bleach","Matte","Sepia","Cross","Noir"],
+    slider:() => ({ label:"Strength %", min:0, max:100, value:100 }) },
+  sharpen:   { title:"SHARPEN", hub:"Method", items:["Unsharp mask","Edge enhance","Detail"],
+    slider: o => o === "Unsharp mask" ? { label:"Amount %", min:50, max:300, value:150 } : null },
+  blur:      { title:"BLUR", hub:"Type", items:["Gaussian","Box","Median"],
+    slider: o => o === "Median" ? { label:"Size", min:1, max:3, value:1 } : { label:"Radius (px)", min:1, max:20, value:3 } },
+  vignette:  { title:"VIGNETTE", hub:"Style", items:["Dark","Light"], slider:() => ({ label:"Strength %", min:5, max:100, value:35 }) },
+  convert:   { title:"CONVERT FORMAT", hub:"Format", mode:"convert", hint:"Rotate the wheel to pick the output format",
+    items:["PNG","JPG","WEBP","BMP","TIFF","GIF","ICO","PDF"],
+    slider: o => (o === "JPG" || o === "WEBP") ? { label:"Quality", min:10, max:100, value:90 } : null },
+};
+["grayscale","threshold","negative","contrast","channels","rotate","flip","looks","grading","sharpen","blur","vignette"].forEach(k => { TOOLS[k].thumbs = true; });
+TOOLS.rotate.thumbAmt = { "Any angle": 25 };      // so the 'Any angle' picture is visibly turned
+let toolBusy = false, toolPending = false;
+const toolOpt = () => items[sel];
+const toolAmt = () => $("toolRow").style.display === "none" ? 0 : +$("toolSl").value;
+
+function paintToolSl() {
+  const el = $("toolSl"), p = (el.value - el.min) / (el.max - el.min) * 100;
+  $("toolSlVal").textContent = el.value;
+  el.style.background = `linear-gradient(to right,var(--accent) ${p}%,var(--track) ${p}%)`;
+}
+function applyToolSlider() {
+  const cfg = TOOLS[tool].slider(items[sel]);
+  $("toolRow").style.display = cfg ? "block" : "none";
+  if (cfg) {
+    const el = $("toolSl");
+    el.min = cfg.min; el.max = cfg.max; el.value = cfg.value;
+    $("toolSlLabel").textContent = cfg.label; paintToolSl();
+  }
+}
+function toolOptionChanged() {
+  if (!tool) return;
+  applyToolSlider();
+  if (tool === "convert") updateConvInfo(); else runToolPreview();
+}
+function onToolSlider() {
+  if (!tool) return;
+  paintToolSl();
+  if (tool === "convert") updateConvInfo(); else runToolPreview();
+}
+function startTool(key) {
+  if (key === "resize") return startResize();
+  const T = TOOLS[key]; if (!T) return;
+  if (key !== "convert" && !hasImage) return toast("Please open an image first.", "err");
+  if (cropping) endCrop();
+  closeDrawer(); resetSliders(); peek = false; zoom = 1; zlabel(); fitImg();
+  tool = key; previewing = null; $("toolInfo").textContent = "";
+  buildWheel(T.mode || "tool", { title:T.title, hub:T.hub, hint:T.hint || "Rotate the wheel to pick an option", labels:T.items });
+  applyToolSlider();
+  if (key === "convert") updateConvInfo(); else runToolPreview();
+  loadThumbs(key);
+}
+/* the wheel options become small pictures of the result (made from the open image) */
+async function loadThumbs(key) {
+  const T = TOOLS[key]; if (!T || !T.thumbs) return;
+  const pairs = T.items.map(o => { const c = T.slider(o), ta = T.thumbAmt && T.thumbAmt[o]; return [o, ta != null ? ta : (c ? c.value : 0)]; });
+  let r; try { r = await eel.tool_thumbs(key, pairs)(); } catch (e) { return; }
+  if (tool !== key || !r || !r.thumbs) return;                     // the tool was closed meanwhile
+  setThumbs(r.thumbs);
+}
+function setThumbs(urls) {
+  if (!curDef || urls.length !== labelSpans.length) return;
+  labelSpans.forEach((sp, i) => {
+    if (!urls[i]) return;
+    sp.innerHTML = `<img src="${urls[i]}" alt="" draggable="false"><small>${curDef.labels[i]}</small>`;
+    sp.classList.add("thumb"); sp.title = curDef.labels[i];
+  });
+  document.querySelector(".dial").classList.add("thumbs");
+}
+async function runToolPreview() {
+  if (!hasImage || !tool || tool === "convert" || tool === "resize") return;
+  if (toolBusy) { toolPending = true; return; }
+  toolBusy = true;
+  try {
+    do {
+      toolPending = false;
+      const key = tool, opt = toolOpt(), amt = toolAmt();
+      const r = await eel.tool_preview(key, opt, amt)();
+      if (tool !== key) continue;                       // the tool was closed or changed meanwhile
+      if (r && r.preview) { previewing = r.preview; $("toolInfo").textContent = r.info || ""; render(); }
+      else if (r && r.error) $("toolInfo").textContent = r.error;
+    } while (toolPending);
+  } finally { toolBusy = false; }
+}
+function resetTool() {                                   // back to the slider's starting value for this option
+  if (tool === "resize") return rzInit();
+  if (!tool || tool === "convert") return;
+  applyToolSlider(); runToolPreview();
+}
+function endTool() { tool = null; previewing = null; toolPending = false; buildWheel("tune"); render(); }
+function cancelTool() { endTool(); }
+async function applyTool() {
+  if (!tool) return;
+  if (tool === "convert") return convSaveAs();
+  if (tool === "resize") return applyResize();
+  const key = tool, opt = toolOpt(), amt = toolAmt();
+  const r = await run(() => eel.tool_apply(key, opt, amt)());
+  endTool(); handle(r);
+}
+
+/* ---------- resize: By Size / As Percentage / Social Media, plus export with a maximum file size ---------- */
+const SOCIAL = [
+  ["Instagram Post (1:1)", 1080, 1080], ["Instagram Portrait (4:5)", 1080, 1350], ["Instagram Story / Reels (9:16)", 1080, 1920],
+  ["Facebook Post", 1200, 630], ["Facebook Cover", 820, 312], ["YouTube Thumbnail", 1280, 720], ["YouTube Channel Banner", 2560, 1440],
+  ["X (Twitter) Post", 1600, 900], ["X (Twitter) Header", 1500, 500], ["LinkedIn Post", 1200, 627], ["LinkedIn Banner", 1584, 396],
+  ["Pinterest Pin (2:3)", 1000, 1500], ["TikTok Video (9:16)", 1080, 1920], ["WhatsApp Profile", 640, 640],
+];
+SOCIAL.forEach(([n, w, h], i) => {
+  const o = document.createElement("option"); o.value = i; o.textContent = `${n}  (${w} x ${h})`; $("rzPreset").appendChild(o);
+});
+let rzModeName = "size", rzPrevUnit = "px", rzPrevDpi = 300;
+const rzFactor = (u, dpi) => u === "in" ? dpi : u === "cm" ? dpi / 2.54 : u === "mm" ? dpi / 25.4 : 1;      // pixels per unit
+const rzToPx = (v, u, dpi) => v * rzFactor(u, dpi);
+const rzFmt = (px, u, dpi) => { const v = px / rzFactor(u, dpi); return u === "px" ? String(Math.round(v)) : String(+v.toFixed(2)); };
+
+function startResize() {
+  if (!hasImage) return toast("Please open an image first.", "err");
+  if (cropping) endCrop();
+  closeDrawer(); resetSliders(); peek = false; zoom = 1; zlabel(); fitImg();
+  tool = "resize"; previewing = null;
+  buildWheel("resize", { title:"RESIZE SETTINGS", hub:"Resize", hint:"", labels:["Resize"] });
+  rzInit();
+}
+function rzInit() {
+  $("rzW").value = ""; $("rzH").value = ""; $("rzUnit").value = "px"; rzPrevUnit = "px"; rzPrevDpi = +$("rzDpi").value || 300;
+  $("rzDpiRow").style.display = "none"; $("rzLock").checked = true;
+  $("rzPW").value = 100; $("rzPH").value = 100; $("rzSlider").value = 100;
+  $("rzTarget").value = ""; $("rzTUnit").value = "KB"; $("rzPreset").value = 0; $("rzFit").value = "fill";
+  rzMode("size");
+}
+function rzMode(m) {
+  rzModeName = m;
+  document.querySelectorAll("#rzTabs button").forEach(b => b.classList.toggle("on", b.dataset.m === m));
+  $("rzSize").style.display = m === "size" ? "block" : "none";
+  $("rzPercent").style.display = m === "percent" ? "block" : "none";
+  $("rzSocial").style.display = m === "social" ? "block" : "none";
+  $("rzLockRow").style.display = m === "social" ? "none" : "flex";
+  rzUpdate();
+}
+function rzCalc() {
+  const check = (w, h, extra = {}) => (w < 1 || h < 1) ? { msg:"The size must be at least 1 px", bad:true }
+    : (w * h > 80e6 ? { msg:"Too large (limit: 80 megapixels)", bad:true } : { w, h, ...extra });
+  if (rzModeName === "size") {
+    const u = $("rzUnit").value, dpi = +$("rzDpi").value || 300;
+    let w = Math.round(rzToPx(+$("rzW").value || 0, u, dpi)), h = Math.round(rzToPx(+$("rzH").value || 0, u, dpi));
+    if (!w && !h) return { msg:"Enter a width or a height" };
+    if ($("rzLock").checked) { if (!h) h = Math.round(imgH * w / imgW); else if (!w) w = Math.round(imgW * h / imgH); }
+    else { w = w || imgW; h = h || imgH; }
+    return check(w, h);
+  }
+  if (rzModeName === "percent") {
+    const pw = +$("rzPW").value, ph = +$("rzPH").value;
+    if (!(pw > 0 && ph > 0)) return { msg:"Enter a percentage" };
+    return check(Math.round(imgW * pw / 100), Math.round(imgH * ph / 100));
+  }
+  const p = SOCIAL[+$("rzPreset").value], fit = $("rzFit").value;
+  return check(p[1], p[2], { fit, note: fit === "fill" ? "cropped to fill" : fit === "fit" ? "fitted with white bars" : "stretched" });
+}
+function rzUpdate() {
+  const r = rzCalc();
+  $("rzInfo").textContent = r.msg ? r.msg : `${imgW} x ${imgH}  ->  ${r.w} x ${r.h} px` + (r.note ? `  (${r.note})` : "");
+  $("rzInfo").classList.toggle("bad", !!r.bad);
+}
+function rzParams() {
+  const r = rzCalc(); if (r.msg) { toast(r.msg, "err"); return null; }
+  if (rzModeName === "percent") return { mode:"percent", pw:+$("rzPW").value, ph:+$("rzPH").value };
+  if (rzModeName === "social") return { mode:"social", w:r.w, h:r.h, fit:r.fit };
+  return { mode:"size", w:r.w, h:r.h };
+}
+function rzType(which) {                                  // typing a width fills in the height (and back) while the lock is on
+  if ($("rzLock").checked) {
+    const u = $("rzUnit").value, dpi = +$("rzDpi").value || 300, ratio = imgW / imgH;
+    const src = $(which === "w" ? "rzW" : "rzH"), dst = $(which === "w" ? "rzH" : "rzW"), v = +src.value;
+    dst.value = v > 0 ? rzFmt(which === "w" ? rzToPx(v, u, dpi) / ratio : rzToPx(v, u, dpi) * ratio, u, dpi) : "";
+  }
+  rzUpdate();
+}
+function rzLockChanged() {
+  if ($("rzLock").checked) {
+    if (rzModeName === "percent") { $("rzPH").value = $("rzPW").value; }
+    else if ($("rzW").value) rzType("w");
+  }
+  rzUpdate();
+}
+function rzUnitChanged() {                                // changing the unit (or DPI) keeps the same size in pixels
+  const u = $("rzUnit").value, dpi = +$("rzDpi").value || 300;
+  ["rzW", "rzH"].forEach(id => { const el = $(id), v = +el.value; if (v > 0) el.value = rzFmt(rzToPx(v, rzPrevUnit, rzPrevDpi), u, dpi); });
+  rzPrevUnit = u; rzPrevDpi = dpi;
+  $("rzDpiRow").style.display = u === "px" ? "none" : "block";
+  rzUpdate();
+}
+function rzPct(src) {
+  if (src === "slider") { $("rzPW").value = $("rzSlider").value; $("rzPH").value = $("rzSlider").value; }
+  else if ($("rzLock").checked) {
+    const v = $(src === "w" ? "rzPW" : "rzPH").value;
+    $("rzPW").value = v; $("rzPH").value = v;
+    if (+v >= 5 && +v <= 400) $("rzSlider").value = v;
+  }
+  rzUpdate();
+}
+function rzToggleExport() {
+  const b = $("rzExportBody"), open = b.style.display !== "none";
+  b.style.display = open ? "none" : "block"; $("rzChevron").textContent = open ? "▾" : "▴";
+}
+async function applyResize() {
+  const p = rzParams(); if (!p) return;
+  const r = await run(() => eel.resize_apply(p)());
+  endTool(); handle(r);
+}
+async function exportResize() {                           // saves a resized copy; the picture in the editor stays as it is
+  const p = rzParams(); if (!p) return;
+  const v = +$("rzTarget").value, kb = v > 0 ? v * ($("rzTUnit").value === "MB" ? 1024 : 1) : null;
+  handle(await run(() => eel.resize_export(p, kb)()));
+}
+
+/* ---------- format conversion ---------- */
+function updateConvInfo() {
+  const f = items[sel], q = (f === "JPG" || f === "WEBP") ? ` at quality ${toolAmt()}` : "";
+  $("convInfo").textContent = (hasImage ? `This image (${imgW} x ${imgH} px)` : "No image open") + ` -> ${f}${q}`;
+}
+async function convSaveAs() {
+  if (!hasImage) return toast("Please open an image first.", "err");
+  handle(await run(() => eel.convert_current(items[sel], toolAmt() || 90)()));
+}
+async function convBatch() { handle(await run(() => eel.convert_files(items[sel], toolAmt() || 90)())); }
+
 /* ---------- popups ---------- */
 function openModal(t) { $("modalTitle").textContent = t; $("modalBody").innerHTML = ""; $("modal").style.display = "flex"; }
 function closeModal() { $("modal").style.display = "none"; }
@@ -648,9 +1038,17 @@ async function showRGB() {
 /* ---------- keyboard + drag & drop ---------- */
 addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
-  if (cropping) {
-    if (k === "enter") applyCrop(); else if (k === "escape") cancelCrop();
+  const typing = e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName || "") && e.target.type !== "range";
+  if (typing) {                                          // typing a number: only Enter (apply) and Esc (cancel) are shortcuts
+    if (k === "enter" && tool) { e.preventDefault(); applyTool(); }
+    else if (k === "escape") { if (cropping) cancelCrop(); else if (tool) cancelTool(); }
+    return;
+  }
+  if (cropping || tool) {
+    if (k === "enter") cropping ? applyCrop() : applyTool();
+    else if (k === "escape") cropping ? cancelCrop() : cancelTool();
     else if (k === "arrowleft") step(-1); else if (k === "arrowright") step(1);
+    else if (e.code === "Space" && tool && !e.repeat) { e.preventDefault(); peekOn(); }
     return;
   }
   if (e.ctrlKey || e.metaKey) {
@@ -672,8 +1070,11 @@ addEventListener("keydown", e => {
 addEventListener("keyup", e => { if (e.code === "Space") peekOff(); });
 
 let depth = 0;
-addEventListener("dragenter", e => { e.preventDefault(); depth++; $("drop").classList.add("on"); });
-addEventListener("dragleave", () => { if (--depth <= 0) { depth = 0; $("drop").classList.remove("on"); } });
+// the "drop an image" overlay is only for files dragged in from Windows, never for the app's own pictures
+const hasFiles = e => !!(e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files"));
+addEventListener("dragstart", e => e.preventDefault());
+addEventListener("dragenter", e => { if (!hasFiles(e)) return; e.preventDefault(); depth++; $("drop").classList.add("on"); });
+addEventListener("dragleave", e => { if (!hasFiles(e)) return; if (--depth <= 0) { depth = 0; $("drop").classList.remove("on"); } });
 addEventListener("dragover", e => e.preventDefault());
 addEventListener("drop", e => {
   e.preventDefault(); depth = 0; $("drop").classList.remove("on");

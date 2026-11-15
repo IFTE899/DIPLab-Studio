@@ -1,20 +1,4 @@
-
-# Python cache files
-__pycache__/
-*.pyc
-
-# Python virtual environments
 .venv/
-venv/
-
-# VS Code settings
-.vscode/
-
-# Build files
 build/
 dist/
-*.spec
-
-# Temporary files
-*.log
-*.tmp
+__pycache__/
