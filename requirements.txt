@@ -1,4 +1,5 @@
 eel
 pillow
+pillow-heif
 numpy
 pyinstaller

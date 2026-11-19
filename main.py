@@ -8,12 +8,20 @@ import eel
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
+try:                                   # HEIC / HEIF (iPhone photos) needs the extra package "pillow-heif"
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+    HEIC_OK = True
+except Exception:
+    HEIC_OK = False
+HEIC_MISSING = "HEIC needs the pillow-heif package. Run:  python -m pip install pillow-heif"
+
 eel.init("web")
 
 # ---------------------------------------------------------------
 # App state (lives in Python, the UI only displays it)
 # ---------------------------------------------------------------
-S = {"orig": None, "proc": None, "small": None, "history": [], "redo": []}
+S = {"orig": None, "proc": None, "small": None, "history": [], "redo": [], "meta": None, "name": "photo"}
 NO_IMAGE = {"error": "Please open an image first."}
 
 # ---------------------------------------------------------------
@@ -21,13 +29,13 @@ NO_IMAGE = {"error": "Please open an image first."}
 # ---------------------------------------------------------------
 FORMATS = {            # name -> default extension
     "PNG": ".png", "JPG": ".jpg", "WEBP": ".webp", "BMP": ".bmp",
-    "TIFF": ".tif", "GIF": ".gif", "ICO": ".ico", "PDF": ".pdf",
+    "TIFF": ".tif", "GIF": ".gif", "ICO": ".ico", "PDF": ".pdf", "HEIC": ".heic",
 }
 EXT_TO_FMT = {".png": "PNG", ".jpg": "JPG", ".jpeg": "JPG", ".webp": "WEBP", ".bmp": "BMP",
-              ".tif": "TIFF", ".tiff": "TIFF", ".gif": "GIF", ".ico": "ICO", ".pdf": "PDF"}
-IMAGE_TYPES = "*.jpg *.jpeg *.png *.bmp *.webp *.tif *.tiff *.gif *.ico"
+              ".tif": "TIFF", ".tiff": "TIFF", ".gif": "GIF", ".ico": "ICO", ".pdf": "PDF", ".heic": "HEIC", ".heif": "HEIC"}
+IMAGE_TYPES = "*.jpg *.jpeg *.png *.bmp *.webp *.tif *.tiff *.gif *.ico *.heic *.heif"
 SAVE_TYPES = [("PNG image", "*.png"), ("JPEG image", "*.jpg"), ("WEBP image", "*.webp"), ("BMP image", "*.bmp"),
-              ("TIFF image", "*.tif"), ("GIF image", "*.gif"), ("Icon", "*.ico"), ("PDF document", "*.pdf")]
+              ("TIFF image", "*.tif"), ("GIF image", "*.gif"), ("Icon", "*.ico"), ("PDF document", "*.pdf"), ("HEIC image", "*.heic")]
 
 
 def flat_rgb(img):
@@ -40,20 +48,27 @@ def flat_rgb(img):
     return img.convert("RGB")
 
 
-def write_image(img, path, fmt=None, quality=90):
-    """Save a PIL image in the given format (or the one the file extension says). Returns the format name."""
+def write_image(img, path, fmt=None, quality=90, meta=None):
+    """Save a PIL image in the given format (or the one the file extension says). Returns the format name.
+    meta = {"icc": colour profile bytes, "dpi": (x, y)} from the original photo, so colours and print size stay the same."""
     fmt = fmt or EXT_TO_FMT.get(os.path.splitext(path)[1].lower(), "PNG")
     q = max(1, min(100, int(quality)))
+    extra = {}
+    if meta:
+        if meta.get("icc"):
+            extra["icc_profile"] = meta["icc"]
+        if meta.get("dpi"):
+            extra["dpi"] = meta["dpi"]
     if fmt == "JPG":
-        flat_rgb(img).save(path, "JPEG", quality=q, optimize=True)
+        flat_rgb(img).save(path, "JPEG", quality=q, optimize=True, **extra)
     elif fmt == "WEBP":
-        (img if img.mode in ("RGB", "RGBA") else img.convert("RGB")).save(path, "WEBP", quality=q)
+        (img if img.mode in ("RGB", "RGBA") else img.convert("RGB")).save(path, "WEBP", quality=q, **({"icc_profile": extra["icc_profile"]} if "icc_profile" in extra else {}))
     elif fmt == "PNG":
-        img.save(path, "PNG", optimize=True)
+        img.save(path, "PNG", compress_level=6, **extra)          # level 6 = fast; "optimize" was very slow on big photos
     elif fmt == "BMP":
         flat_rgb(img).save(path, "BMP")
     elif fmt == "TIFF":
-        img.save(path, "TIFF", compression="tiff_lzw")
+        img.save(path, "TIFF", compression="tiff_lzw", **extra)
     elif fmt == "GIF":
         flat_rgb(img).convert("P", palette=Image.Palette.ADAPTIVE, colors=256).save(path, "GIF")
     elif fmt == "ICO":
@@ -64,9 +79,34 @@ def write_image(img, path, fmt=None, quality=90):
         canvas.save(path, "ICO", sizes=sizes)
     elif fmt == "PDF":
         flat_rgb(img).save(path, "PDF", resolution=100.0)
+    elif fmt == "HEIC":
+        if not HEIC_OK:
+            raise ValueError(HEIC_MISSING)
+        (img if img.mode in ("RGB", "RGBA") else img.convert("RGB")).save(path, format="HEIF", quality=q)
     else:
         raise ValueError(f"Unknown format: {fmt}")
     return fmt
+
+
+def ask_save_path(title="Save image", initialfile="", types=None):
+    """Windows 'Save as' dialog. If no extension is typed, the one of the file type picked in the dialog is added
+    (before, '.png' was always added, so choosing JPEG but typing only a name gave a PNG)."""
+    types = types or SAVE_TYPES
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    picked = tk.StringVar(root)
+    try:
+        path = filedialog.asksaveasfilename(parent=root, title=title, initialfile=initialfile, filetypes=types, typevariable=picked)
+        label = picked.get()
+    finally:
+        root.destroy()
+    if not path:
+        return ""
+    if os.path.splitext(path)[1].lower() not in EXT_TO_FMT:
+        pattern = next((pat for name, pat in types if name == label), types[0][1])
+        path += pattern.replace("*", "")
+    return path
 
 
 def unique_path(folder, name, ext):
@@ -147,9 +187,11 @@ def pick_open():
         return {"cancelled": True}
     try:
         with Image.open(path) as im:
+            S["meta"] = {"icc": im.info.get("icc_profile"), "dpi": im.info.get("dpi")}
+            S["name"] = os.path.splitext(os.path.basename(path))[0]
             img = ImageOps.exif_transpose(im).convert("RGB").copy()
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e) if (HEIC_OK or not path.lower().endswith((".heic", ".heif"))) else HEIC_MISSING}
     S["orig"] = img.copy()
     S["history"].clear()
     S["redo"].clear()
@@ -163,9 +205,11 @@ def open_data(data_url, name="dropped image"):
     try:
         raw = base64.b64decode(data_url.split(",", 1)[1])
         with Image.open(io.BytesIO(raw)) as im:
-            img = im.convert("RGB").copy()
+            S["meta"] = {"icc": im.info.get("icc_profile"), "dpi": im.info.get("dpi")}
+            S["name"] = os.path.splitext(os.path.basename(name))[0] or "photo"
+            img = ImageOps.exif_transpose(im).convert("RGB").copy()
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e) if (HEIC_OK or not str(name).lower().endswith((".heic", ".heif"))) else HEIC_MISSING}
     S["orig"] = img.copy()
     S["history"].clear()
     S["redo"].clear()
@@ -177,18 +221,17 @@ def open_data(data_url, name="dropped image"):
 def save_image():
     if S["proc"] is None:
         return NO_IMAGE
-    path = dialog(
-        filedialog.asksaveasfilename,
-        defaultextension=".png",
-        filetypes=SAVE_TYPES,
-    )
+    path = ask_save_path("Save image", f"{S['name']}-edited")
     if not path:
         return {"cancelled": True}
     try:
-        fmt = write_image(S["proc"], path)
-        return {"status": f"Saved: {path} ({fmt})"}
+        fmt = write_image(S["proc"], path, meta=S["meta"])
+        w, h = S["proc"].size
+        return {"status": f"Saved: {path} ({fmt}, {os.path.getsize(path) / 1024:.0f} KB, {w} x {h} px)"}
+    except PermissionError:
+        return {"error": "Cannot save there. Is the file open in another program, or is the folder protected?"}
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": f"Could not save: {e}"}
 
 
 # ---------------------------------------------------------------
@@ -775,11 +818,11 @@ def resize_export(p, target_kb=None):
             return {"error": str(e)}
         note = "" if size == out.size else f", shrunk to {size[0]} x {size[1]} px to fit"
         return {"status": f"Saved: {path} (JPG, {len(data) / 1024:.0f} KB, quality {q}{note})"}
-    path = dialog(filedialog.asksaveasfilename, defaultextension=".png", initialfile="resized.png", filetypes=SAVE_TYPES)
+    path = ask_save_path("Save resized copy", f"{S['name']}-resized")
     if not path:
         return {"cancelled": True}
     try:
-        fmt = write_image(out, path)
+        fmt = write_image(out, path, meta=S["meta"])
         return {"status": f"Saved: {path} ({fmt}, {os.path.getsize(path) / 1024:.0f} KB, {out.width} x {out.height} px)"}
     except Exception as e:
         return {"error": str(e)}
@@ -795,8 +838,10 @@ def convert_current(fmt, quality=90):
         return NO_IMAGE
     if fmt not in FORMATS:
         return {"error": f"Unknown format: {fmt}"}
+    if fmt == "HEIC" and not HEIC_OK:
+        return {"error": HEIC_MISSING}
     ext = FORMATS[fmt]
-    path = dialog(filedialog.asksaveasfilename, defaultextension=ext, initialfile="converted" + ext,
+    path = dialog(filedialog.asksaveasfilename, defaultextension=ext, initialfile=f"{S['name']}{ext}",
                   filetypes=[(f"{fmt} image", "*" + ext)])
     if not path:
         return {"cancelled": True}
@@ -814,6 +859,8 @@ def convert_files(fmt, quality=90):
     """Pick any number of image files and convert them all to one format."""
     if fmt not in FORMATS:
         return {"error": f"Unknown format: {fmt}"}
+    if fmt == "HEIC" and not HEIC_OK:
+        return {"error": HEIC_MISSING}
     files = dialog(filedialog.askopenfilenames, title="Choose the images to convert",
                    filetypes=[("Image files", IMAGE_TYPES), ("All files", "*.*")])
     if not files:

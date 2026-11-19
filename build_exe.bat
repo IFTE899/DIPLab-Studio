@@ -11,7 +11,7 @@ echo Installing packages...
 python -m pip install -r requirements.txt
 
 echo Building exe (this takes 1-3 minutes)...
-pyinstaller --onefile --noconsole --clean --name DIPLabStudio --icon icon.ico --add-data "web;web" --add-data ".venv\Lib\site-packages\eel\eel.js;eel" main.py
+pyinstaller --onefile --noconsole --clean --name DIPLabStudio --icon icon.ico --collect-all pillow_heif --add-data "web;web" --add-data ".venv\Lib\site-packages\eel\eel.js;eel" main.py
 
 echo.
 if exist dist\DIPLabStudio.exe (

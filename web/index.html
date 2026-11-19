@@ -268,9 +268,9 @@
       <button class="btn" onclick="swapAspect()">&#8644; Swap orientation</button>
       <button class="btn" onclick="resetCrop()">Reset crop box</button>
       <button class="btn primary" onclick="applyCrop()">Apply Crop</button>
-      <button class="btn" onclick="cancelCrop()">Cancel</button>
+      <button class="btn" onclick="cancelCrop()">Close</button>
     </div>
-    <div class="hint" id="cropHint" style="display:none">Drag the box or its handles<br><kbd>Enter</kbd> apply &nbsp;&middot;&nbsp; <kbd>Esc</kbd> cancel</div>
+    <div class="hint" id="cropHint" style="display:none">Drag the box or its handles<br><kbd>Enter</kbd> apply &nbsp;&middot;&nbsp; <kbd>Esc</kbd> close</div>
 
     <div id="resizePanel" style="display:none">
       <div class="seg3" id="rzTabs">
@@ -317,7 +317,7 @@
         <button class="btn primary" onclick="applyResize()">Apply resize</button>
         <button class="btn" onclick="exportResize()">Save resized copy...</button>
         <button class="btn" onclick="resetTool()">Reset</button>
-        <button class="btn" onclick="cancelTool()">Cancel</button>
+        <button class="btn" onclick="cancelTool()">Close</button>
       </div>
     </div>
 
@@ -329,7 +329,7 @@
       <div id="toolInfo">&mdash;</div>
       <button class="btn primary" onclick="applyTool()">Apply</button>
       <button class="btn" onclick="resetTool()">Reset</button>
-      <button class="btn" onclick="cancelTool()">Cancel</button>
+      <button class="btn" onclick="cancelTool()">Close</button>
     </div>
     <div class="btnrow" id="convBtns" style="display:none">
       <div id="convInfo">&mdash;</div>
@@ -337,7 +337,7 @@
       <button class="btn" onclick="convBatch()">Convert many files...</button>
       <button class="btn" onclick="cancelTool()">Close</button>
     </div>
-    <div class="hint" id="toolHint" style="display:none">Rotate the wheel to change the option<br><kbd>Enter</kbd> apply &nbsp;&middot;&nbsp; <kbd>Esc</kbd> cancel &nbsp;&middot;&nbsp; hold <kbd>Space</kbd> to compare</div>
+    <div class="hint" id="toolHint" style="display:none">Rotate the wheel to change the option<br><kbd>Enter</kbd> apply &nbsp;&middot;&nbsp; <kbd>Esc</kbd> close &nbsp;&middot;&nbsp; hold <kbd>Space</kbd> to compare</div>
   </aside>
 </main>
 
@@ -353,7 +353,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
-let hasImage = false, zoom = 1, peek = false, cropping = false, tool = null;
+let hasImage = false, zoom = 1, peek = false, cropping = false, tool = null, keepMode = false;
 let original = null, processed = null, previewing = null;
 const PAD = 30;
 
@@ -614,8 +614,10 @@ function handle(r) {
   if (r.error) { status(r.error); toast(r.error, "err"); return; }
   if (r.original) { original = r.original; zoom = 1; zlabel(); }
   if (r.processed) {
-    if (cropping) endCrop();
-    if (tool) { tool = null; toolPending = false; buildWheel("tune"); }
+    if (!keepMode) {                                      // a new picture from Open / Undo / Reset closes the open tool, an Apply keeps it
+      if (cropping) endCrop();
+      if (tool) { tool = null; toolPending = false; buildWheel("tune"); }
+    }
     processed = r.processed; hasImage = true; resetSlidersUI(); render(); refreshHist();
   }
   if (r.size) { $("dims").textContent = r.size; const m = /(\d+)\s*x\s*(\d+)/.exec(r.size); if (m) { imgW = +m[1]; imgH = +m[2]; } }
@@ -624,7 +626,17 @@ function handle(r) {
 }
 async function call(fn, arg) { handle(await run(() => arg === undefined ? fn()() : fn(arg)())); }
 async function openImg() { handle(await eel.pick_open()()); }
-async function saveImg() { handle(await eel.save_image()()); }
+function pendingEdit() {                                  // something on screen that is not part of the picture yet
+  if (tool && tool !== "convert" && tool !== "resize" && previewing) return "the preview of " + TOOLS[tool].title.toLowerCase();
+  if (cropping && (cb.x > 0.5 || cb.y > 0.5 || cb.w < imgW - 0.5 || cb.h < imgH - 0.5)) return "the crop box";
+  return "";
+}
+async function saveImg() {
+  const pend = pendingEdit();
+  const r = await run(() => eel.save_image()());          // the spinner stays up while the file is written
+  handle(r);
+  if (pend && r && r.status) toast(`The saved file does not include ${pend}. Press Apply first to include it.`);
+}
 
 /* ---------- mini histogram ---------- */
 async function refreshHist() {
@@ -688,8 +700,11 @@ function endCrop() {
 }
 function cancelCrop() { endCrop(); }
 async function applyCrop() {
-  const b = cb; endCrop();
-  handle(await run(() => eel.crop(b.x / imgW, b.y / imgH, (b.x + b.w) / imgW, (b.y + b.h) / imgH)()));
+  const b = cb;
+  const r = await run(() => eel.crop(b.x / imgW, b.y / imgH, (b.x + b.w) / imgW, (b.y + b.h) / imgH)());
+  const stay = cropping;
+  keepMode = stay; handle(r); keepMode = false;
+  if (stay && r && r.processed) { cb = { x: 0, y: 0, w: imgW, h: imgH }; goTo(0); }   // stay in Crop: whole new picture selected, shape Free
 }
 function setAspect(r) {
   cAspect = r;
@@ -779,8 +794,8 @@ const TOOLS = {
     slider: o => o === "Median" ? { label:"Size", min:1, max:3, value:1 } : { label:"Radius (px)", min:1, max:20, value:3 } },
   vignette:  { title:"VIGNETTE", hub:"Style", items:["Dark","Light"], slider:() => ({ label:"Strength %", min:5, max:100, value:35 }) },
   convert:   { title:"CONVERT FORMAT", hub:"Format", mode:"convert", hint:"Rotate the wheel to pick the output format",
-    items:["PNG","JPG","WEBP","BMP","TIFF","GIF","ICO","PDF"],
-    slider: o => (o === "JPG" || o === "WEBP") ? { label:"Quality", min:10, max:100, value:90 } : null },
+    items:["PNG","JPG","WEBP","BMP","TIFF","GIF","ICO","PDF","HEIC"],
+    slider: o => (o === "JPG" || o === "WEBP" || o === "HEIC") ? { label:"Quality", min:10, max:100, value:90 } : null },
 };
 ["grayscale","threshold","negative","contrast","channels","rotate","flip","looks","grading","sharpen","blur","vignette"].forEach(k => { TOOLS[k].thumbs = true; });
 TOOLS.rotate.thumbAmt = { "Any angle": 25 };      // so the 'Any angle' picture is visibly turned
@@ -869,7 +884,13 @@ async function applyTool() {
   if (tool === "resize") return applyResize();
   const key = tool, opt = toolOpt(), amt = toolAmt();
   const r = await run(() => eel.tool_apply(key, opt, amt)());
-  endTool(); handle(r);
+  const stay = tool === key;                              // still in the same tool? then stay (you may want to go on editing)
+  keepMode = stay; handle(r); keepMode = false;
+  if (stay && r && r.processed) {
+    previewing = null; applyToolSlider(); render();
+    $("toolInfo").textContent = "Applied. Pick another option to preview the next edit, or press Close.";
+    loadThumbs(key);                                      // the pictures on the wheel now show the new image
+  }
 }
 
 /* ---------- resize: By Size / As Percentage / Social Media, plus export with a maximum file size ---------- */
@@ -979,7 +1000,9 @@ function rzToggleExport() {
 async function applyResize() {
   const p = rzParams(); if (!p) return;
   const r = await run(() => eel.resize_apply(p)());
-  endTool(); handle(r);
+  const stay = tool === "resize";
+  keepMode = stay; handle(r); keepMode = false;
+  if (stay && r && r.processed) rzInit();                 // empty form, ready for the next size
 }
 async function exportResize() {                           // saves a resized copy; the picture in the editor stays as it is
   const p = rzParams(); if (!p) return;
@@ -989,7 +1012,7 @@ async function exportResize() {                           // saves a resized cop
 
 /* ---------- format conversion ---------- */
 function updateConvInfo() {
-  const f = items[sel], q = (f === "JPG" || f === "WEBP") ? ` at quality ${toolAmt()}` : "";
+  const f = items[sel], q = (f === "JPG" || f === "WEBP" || f === "HEIC") ? ` at quality ${toolAmt()}` : "";
   $("convInfo").textContent = (hasImage ? `This image (${imgW} x ${imgH} px)` : "No image open") + ` -> ${f}${q}`;
 }
 async function convSaveAs() {
@@ -1038,6 +1061,7 @@ async function showRGB() {
 /* ---------- keyboard + drag & drop ---------- */
 addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); saveImg(); return; }     // works inside tools too
   const typing = e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName || "") && e.target.type !== "range";
   if (typing) {                                          // typing a number: only Enter (apply) and Esc (cancel) are shortcuts
     if (k === "enter" && tool) { e.preventDefault(); applyTool(); }
@@ -1079,7 +1103,7 @@ addEventListener("dragover", e => e.preventDefault());
 addEventListener("drop", e => {
   e.preventDefault(); depth = 0; $("drop").classList.remove("on");
   const f = e.dataTransfer.files[0]; if (!f) return;
-  if (!f.type.startsWith("image/")) return toast("That is not an image file", "err");
+  if (!f.type.startsWith("image/") && !/\.(jpe?g|png|bmp|webp|tiff?|gif|ico|heic|heif)$/i.test(f.name)) return toast("That is not an image file", "err");
   const rd = new FileReader();
   rd.onload = async () => handle(await run(() => eel.open_data(rd.result, f.name)()));
   rd.readAsDataURL(f);
